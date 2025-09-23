@@ -25,7 +25,7 @@ color ray_color(const ray& r, const hittable& world) {
 
 int main(int argc, char** argv) {
     if (argc < 1) {
-        std::cerr << "Usage: " << argv[0] << " scene_file.txt > out.ppm\n";
+        std::cerr << "Usage: " << argv[0] << " scene_file.txt\n";
         return 1;
     }
 
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
                 have_eye = true;
             } else {
                 std::cerr << "Invalid E line: " << line << "\n";
-                return 1;
+                // return 1;
             }
         } else if (token == "O") {
             double ulx,uly,ulz, urx,ury,urz, llx,lly,llz, lrx,lry,lrz;
@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
                 have_output = true;
             } else {
                 std::cerr << "Invalid O line: " << line << "\n";
-                return 1;
+                // return 1;
             }
         } else if (token == "R") {
             int w,h;
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
                 have_res = true;
             } else {
                 std::cerr << "Invalid R line: " << line << "\n";
-                return 1;
+                // return 1;
             }
         } else if (token == "S") {
             double ox,oy,oz,r;
@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
                 world.add(make_shared<sphere>(point3(ox,oy,oz), r));
             } else {
                 std::cerr << "Invalid S line: " << line << "\n";
-                return 1;
+                // return 1;
             }
         } else if (token == "T") {
             double x1,y1,z1,x2,y2,z2,x3,y3,z3;
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
                 world.add(make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3)));
             } else {
                 std::cerr << "Invalid T line: " << line << "\n";
-                return 1;
+                // return 1;
             }
         } else {
             // unknown token: ignore or warn
@@ -122,25 +122,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Image
-
-    // auto aspect_ratio = 16.0 / 9.0;
-    // int image_width = 400;
-
-    // Calculate the image height, and ensure that it's at least 1.
-    // int image_height = int(image_width / aspect_ratio);
-    // image_height = (image_height < 1) ? 1 : image_height;
-
-    // World
-
-    // hittable_list world;
-
-    // world.add(make_shared<sphere>(point3(0,0,-1), 0.5));
-    // world.add(make_shared<sphere>(point3(0,-100.5,-1), 100));
-
+    // Image (del)
+    // World (del)
     // Camera
-
-    auto focal_length = 1.0;
     auto viewport_height = 2.0;
     auto viewport_width = viewport_height * (double(image_width)/image_height);
     auto camera_center = Eye;
@@ -150,21 +134,13 @@ int main(int argc, char** argv) {
     auto viewport_v = vec3(0, -viewport_height, 0);
 
     // Calculate the horizontal and vertical delta vectors from pixel to pixel.
-    // auto pixel_delta_u = viewport_u / image_width;
-    // auto pixel_delta_v = viewport_v / image_height;
     vec3 pixel_delta_u = (UR - UL) / double(image_width);
     vec3 pixel_delta_v = (LL - UL) / double(image_height);
 
-
     // Calculate the location of the upper left pixel.
-    // auto viewport_upper_left = camera_center
-    //                          - vec3(0, 0, focal_length) - viewport_u/2 - viewport_v/2;
-    // auto pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
     vec3 pixel00_loc = UL + 0.5 * (pixel_delta_u + pixel_delta_v);
 
     // Render
-
-    // std::cout << "P3\n" << image_width << " " << image_height << "\n255\n";
     ColorImage image;
     image.init(image_width, image_width);
     for (int j = 0; j < image_height; j++) {
@@ -178,6 +154,6 @@ int main(int argc, char** argv) {
             image.writePixel(i, j, pixel_color);
         }
     }
-    image.outputPPM("image.ppm");
+    image.outputPPM("output.ppm");
     std::clog << "\rDone.                 \n";
 }

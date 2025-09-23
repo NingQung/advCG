@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <assert.h>
 
+using color = vec3;
+using color256 = vec3;
+
 struct Pixel {
 	unsigned char R, G, B;  // Blue, Green, Red
 };
