@@ -1,27 +1,12 @@
 #include "rtweekend.h"
+
+#include "camera.h"
 #include "hittable.h"
 #include "hittable_list.h"
+#include "material.h"
 #include "sphere.h"
 #include "triangle.h"
 #include "imageIO.h"
-
-color ray_color(const ray& r, const hittable& world) {
-    hit_record rec;
-    if (world.hit(r, interval(0, infinity), rec)) {
-        auto map01 = [](double v)->double {
-            double t = (v + 1.0) * 0.5;
-            if (t < 0.0) return 0.0;
-            if (t > 1.0) return 1.0;
-            return t;
-        };
-        double r = map01(rec.p.x());
-        double g = map01(rec.p.y());
-        double b = map01(rec.p.z());
-        return color(r, g, b);
-    }
-    return color(0,0,0);
-}
-
 
 int main(int argc, char** argv) {
     if (argc < 1) {
@@ -122,38 +107,32 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Image (del)
-    // World (del)
-    // Camera
-    auto viewport_height = 2.0;
-    auto viewport_width = viewport_height * (double(image_width)/image_height);
-    auto camera_center = Eye;
+    hittable_list world;
 
-    // Calculate the vectors across the horizontal and down the vertical viewport edges.
-    auto viewport_u = vec3(viewport_width, 0, 0);
-    auto viewport_v = vec3(0, -viewport_height, 0);
+    auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
+    auto material_center = make_shared<lambertian>(color(0.1, 0.2, 0.5));
+    auto material_left   = make_shared<dielectric>(1.50);
+    auto material_bubble = make_shared<dielectric>(1.00 / 1.50);
+    auto material_right  = make_shared<metal>(color(0.8, 0.6, 0.2), 1.0);
 
-    // Calculate the horizontal and vertical delta vectors from pixel to pixel.
-    vec3 pixel_delta_u = (UR - UL) / double(image_width);
-    vec3 pixel_delta_v = (LL - UL) / double(image_height);
+    world.add(make_shared<sphere>(point3( 0.0, -100.5, -1.0), 100.0, material_ground));
+    world.add(make_shared<sphere>(point3( 0.0,    0.0, -1.2),   0.5, material_center));
+    world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),   0.5, material_left));
+    world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),   0.4, material_bubble));
+    world.add(make_shared<sphere>(point3( 1.0,    0.0, -1.0),   0.5, material_right));
 
-    // Calculate the location of the upper left pixel.
-    vec3 pixel00_loc = UL + 0.5 * (pixel_delta_u + pixel_delta_v);
+    camera cam;
 
-    // Render
-    ColorImage image;
-    image.init(image_width, image_width);
-    for (int j = 0; j < image_height; j++) {
-        // std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-        for (int i = 0; i < image_width; i++) {
-            auto pixel_center = pixel00_loc + (i * pixel_delta_u) + (j * pixel_delta_v);
-            auto ray_direction = pixel_center - camera_center;
-            ray r(camera_center, ray_direction);
+    cam.aspect_ratio      = 16.0 / 9.0;
+    cam.image_width       = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth         = 50;
 
-            color pixel_color = ray_color(r, world);
-            image.writePixel(i, j, pixel_color);
-        }
-    }
-    image.outputPPM("output.ppm");
-    std::clog << "\rDone.                 \n";
+
+    cam.vfov     = 20;
+    cam.lookfrom = point3(-2,2,1);
+    cam.lookat   = point3(0,0,-1);
+    cam.vup      = vec3(0,1,0);
+
+    cam.render(world);
 }
