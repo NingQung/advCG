@@ -6,7 +6,6 @@
 #include "material.h"
 #include "sphere.h"
 #include "triangle.h"
-#include "imageIO.h"
 
 int main(int argc, char** argv) {
     if (argc < 1) {
@@ -23,13 +22,19 @@ int main(int argc, char** argv) {
     // Variables to be read from file
     bool have_eye = false, have_res = false, have_view = false, have_fov = false;
     point3 Eye;
-    point3 view_dir, view_up;
+    vec3 view_dir, view_up;
     double fov = 90;
     int image_width = 0, image_height = 0;
+    double aspect_ratio = 0;
     point3 light_pos;
     
 
     hittable_list world;
+    camera cam;
+    cam.samples_per_pixel = 10;
+    cam.max_depth         = 50;
+
+    auto material_static = make_shared<lambertian>(color(0.8, 0.8, 0.8));
 
     std::string line;
     while (std::getline(infile, line)) {
@@ -53,11 +58,31 @@ int main(int argc, char** argv) {
                 std::cerr << "Invalid E line: " << line << "\n";
                 // return 1;
             }
+        } else if (token == "V") { //View
+          double dx,dy,dz,ux,uy,uz;
+          if (iss >> dx>>dy>>dz>>ux>>uy>>uz) {
+            view_dir = vec3(dx,dy,dz);
+            view_up  = vec3(ux,uy,uz);
+            have_view = true;
+          } else {
+            std::cerr << "Invalid V line: " << line << "\n";
+            // return 1;
+          }
+        } else if (token == "F") { //Fov
+          double fangle;
+          if(iss >> fangle){
+            fov = fangle;
+            have_fov = true;
+          } else {
+            std::cerr << "Invalid F line: " << line << "\n";
+            // return 1;
+          }
         } else if (token == "R") { //Resolution
             int w,h;
             if (iss >> w >> h) {
                 image_width = w;
                 image_height = h;
+                aspect_ratio = (double)image_width / (double)image_height;
                 have_res = true;
             } else {
                 std::cerr << "Invalid R line: " << line << "\n";
@@ -66,7 +91,7 @@ int main(int argc, char** argv) {
         } else if (token == "S") { //Sphere
             double ox,oy,oz,r;
             if (iss >> ox >> oy >> oz >> r) {
-                world.add(make_shared<sphere>(point3(ox,oy,oz), r));
+                world.add(make_shared<sphere>(point3(ox,oy,oz), r, material_static));
             } else {
                 std::cerr << "Invalid S line: " << line << "\n";
                 // return 1;
@@ -74,19 +99,28 @@ int main(int argc, char** argv) {
         } else if (token == "T") { //triangle
             double x1,y1,z1,x2,y2,z2,x3,y3,z3;
             if (iss >> x1>>y1>>z1>>x2>>y2>>z2>>x3>>y3>>z3) {
-                world.add(make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3)));
+                world.add(make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3), material_static));
             } else {
                 std::cerr << "Invalid T line: " << line << "\n";
                 // return 1;
             }
-        } else if (token == "V") { //View
-
-        } else if (token == "F") { //Fov
-
         } else if (token == "L") { //Light pos
-
+          double lx,ly,lz;
+          if (iss >> lx>>ly>>lz) {
+              std::cerr << "Skip L line: " << line << "\n";
+          } else {
+              std::cerr << "Invalid L line: " << line << "\n";
+              // return 1;
+          }
         } else if (token == "M") { //Material (Phong here)
-
+          double mr,mg,mb,Ka,Kd,Ks,exp,MR;
+          if (iss >> mr>>mg>>mb>>Ka>>Ks>>Kd>>exp>>MR) {
+              material_static = make_shared<lambertian>(color(mr, mg, mb));
+              std::cerr << "Skip some part of M line: " << line << "\n";
+          } else {
+              std::cerr << "Invalid M line: " << line << "\n";
+              // return 1;
+          }
         } else {
             // unknown token: ignore or warn
             std::clog << "Warning: unknown token '" << token << "' in line: " << line << "\n";
@@ -102,30 +136,14 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
-    auto material_center = make_shared<lambertian>(color(0.1, 0.2, 0.5));
-    auto material_left   = make_shared<dielectric>(1.50);
-    auto material_bubble = make_shared<dielectric>(1.00 / 1.50);
-    auto material_right  = make_shared<metal>(color(0.8, 0.6, 0.2), 1.0);
-
-    world.add(make_shared<sphere>(point3( 0.0, -100.5, -1.0), 100.0, material_ground));
-    world.add(make_shared<sphere>(point3( 0.0,    0.0, -1.2),   0.5, material_center));
-    world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),   0.5, material_left));
-    world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),   0.4, material_bubble));
-    world.add(make_shared<sphere>(point3( 1.0,    0.0, -1.0),   0.5, material_right));
-
-    camera cam;
-
-    cam.aspect_ratio      = 16.0 / 9.0;
-    cam.image_width       = 400;
-    cam.samples_per_pixel = 100;
-    cam.max_depth         = 50;
-
-
-    cam.vfov     = 20;
-    cam.lookfrom = point3(-2,2,1);
-    cam.lookat   = point3(0,0,-1);
-    cam.vup      = vec3(0,1,0);
+    // E & V & F & R
+    cam.aspect_ratio      = aspect_ratio;
+    cam.image_width       = image_width;
+    cam.image_height      = image_height;
+    cam.lookfrom          = Eye;
+    cam.lookat            = Eye + view_dir;
+    cam.vup               = view_up;
+    cam.vfov              = fov;
 
     cam.render(world);
 }

@@ -3,11 +3,13 @@
 
 #include "hittable.h"
 #include "material.h"
+#include "imageIO.h"
 
 class camera {
   public:
     double aspect_ratio = 1.0;  // Ratio of image width over height
     int    image_width  = 100;  // Rendered image width in pixel count
+    int    image_height = 100;  // Rendered image height
     int    samples_per_pixel = 5;   // Count of random samples for each pixel
     int    max_depth         = 10;   // Maximum number of ray bounces into scene
 
@@ -19,8 +21,8 @@ class camera {
     void render(const hittable& world) {
         initialize();
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-
+        ColorImage image;
+        image.init(image_width, image_width);
         for (int j = 0; j < image_height; j++) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
             for (int i = 0; i < image_width; i++) {
@@ -29,15 +31,14 @@ class camera {
                     ray r = get_ray(i, j);
                     pixel_color += ray_color(r, max_depth, world);
                 }
-                write_color(std::cout, pixel_samples_scale * pixel_color);
+                image.writePixel(i, j, pixel_samples_scale * pixel_color);
             }
         }
-
+        image.outputPPM("output.ppm");
         std::clog << "\rDone.                 \n";
     }
 
   private:
-    int    image_height;   // Rendered image height
     double pixel_samples_scale;  // Color scale factor for a sum of pixel samples
     point3 center;         // Camera center
     point3 pixel00_loc;    // Location of pixel 0, 0

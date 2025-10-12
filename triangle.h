@@ -5,8 +5,8 @@
 
 class triangle : public hittable {
   public:
-    triangle(const point3& a, const point3& b, const point3& c)
-        : v0(a), v1(b), v2(c) {}
+    triangle(const point3& a, const point3& b, const point3& c, shared_ptr<material> mat)
+        : v0(a), v1(b), v2(c), mat(mat) {}
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
         const double EPS = 1e-8;
@@ -34,10 +34,13 @@ class triangle : public hittable {
         rec.p = r.at(t);
         vec3 outward_normal = unit_vector(cross(edge1, edge2)); // not necessarily unit if degenerate, but cross of non-degenerate edges is nonzero
         rec.set_face_normal(r, outward_normal);
+        rec.mat = mat;
+
         return true;
     }
 
 private:
     point3 v0, v1, v2;
+    shared_ptr<material> mat;
 };
 #endif
