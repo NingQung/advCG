@@ -31,10 +31,10 @@ int main(int argc, char** argv) {
 
     hittable_list world;
     camera cam;
-    cam.samples_per_pixel = 10;
+    cam.samples_per_pixel = 1;
     cam.max_depth         = 50;
 
-    auto material_static = make_shared<lambertian>(color(0.8, 0.8, 0.8));
+    auto material_static = make_shared<phong>(color(0.8, 0.8, 0.8), 0.2, 0.7, 1.0, 10.0, 0.5);
 
     std::string line;
     while (std::getline(infile, line)) {
@@ -113,9 +113,9 @@ int main(int argc, char** argv) {
               // return 1;
           }
         } else if (token == "M") { //Material (Phong here)
-          double mr,mg,mb,Ka,Kd,Ks,exp,MR;
-          if (iss >> mr>>mg>>mb>>Ka>>Ks>>Kd>>exp>>MR) {
-              material_static = make_shared<lambertian>(color(mr, mg, mb));
+          double mr,mg,mb,Ka,Kd,Ks,exps,MR;
+          if (iss >> mr>>mg>>mb>>Ka>>Ks>>Kd>>exps>>MR) {
+              material_static = make_shared<phong>(color(mr, mg, mb), Ka, Kd, Ks, exps, MR);
               std::cerr << "Skip some part of M line: " << line << "\n";
           } else {
               std::cerr << "Invalid M line: " << line << "\n";

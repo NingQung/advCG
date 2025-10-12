@@ -107,6 +107,10 @@ inline vec3 unit_vector(const vec3& v) {
     return v / v.length();
 }
 
+inline double clamp(const double& value) {
+    return std::min(std::max(value, 0.0), 1.0);
+}
+
 inline vec3 random_unit_vector() {
     while (true) {
         auto p = vec3::random(-1,1);

@@ -91,4 +91,38 @@ class dielectric : public material {
     }
 };
 
+class phong : public material {
+  public:
+    phong(const color& albedo, double Ka, double Kd, double Ks, double exps, double MR)
+       : albedo(albedo), Ka(Ka), Kd(Kd), Ks(Ks), exps(exps), MR(MR){}
+
+    bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered)
+    const override {
+        point3 light = point3(5.0,5.0,-5.0);
+        
+        attenuation = ambient() + diffuse(light, rec.p, rec.normal);
+
+        vec3 reflected = reflect(r_in.direction(), rec.normal);
+        reflected = unit_vector(reflected);
+        scattered = ray(rec.p, reflected);
+
+        return true;
+    }
+
+  private:
+    color albedo;
+    double Ka,Kd,Ks,exps,MR;
+
+    color ambient() const{
+      return albedo * Ka;
+    }
+    color diffuse(point3 light_pos, point3 rec_p, vec3 normal) const{
+      vec3 light_dir = unit_vector(light_pos - rec_p);
+      return albedo * Kd * (std::max(dot(light_dir,normal),0.0));
+    }
+    color specular(vec3 light_dir, vec3 normal, vec3 ){
+      return albedo * Ka;
+    }
+};
+
 #endif
