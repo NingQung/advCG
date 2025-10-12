@@ -1,14 +1,106 @@
 #include "rtweekend.h"
 
-#include "camera.h"
+#include "camerahw.h"
 #include "hittable.h"
 #include "hittable_list.h"
 #include "material.h"
 #include "sphere.h"
+#include "triangle.h"
+#include "imageIO.h"
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc < 1) {
+        std::cerr << "Usage: " << argv[0] << " scene_file.txt\n";
+        return 1;
+    }
+
+    std::ifstream infile(argv[1]);
+    if (!infile) {
+        std::cerr << "Cannot open file: " << argv[1] << "\n";
+        return 1;
+    }
+
+    // Variables to be read from file
+    bool have_eye = false, have_res = false, have_view = false, have_fov = false;
+    point3 Eye;
+    point3 view_dir, view_up;
+    double fov = 90;
+    int image_width = 0, image_height = 0;
+    point3 light_pos;
+    
 
     hittable_list world;
+
+    std::string line;
+    while (std::getline(infile, line)) {
+        // skip empty or comment lines (starting with #)
+        std::string trimmed = line;
+        // trim leading spaces
+        size_t pos = trimmed.find_first_not_of(" \t\r\n");
+        if (pos == std::string::npos) continue;
+        if (trimmed[pos] == '#') continue;
+
+        std::istringstream iss(trimmed);
+        std::string token;
+        if (!(iss >> token)) continue;
+
+        if (token == "E") { // Eye pos
+            double x,y,z;
+            if (iss >> x >> y >> z) {
+                Eye = point3(x,y,z);
+                have_eye = true;
+            } else {
+                std::cerr << "Invalid E line: " << line << "\n";
+                // return 1;
+            }
+        } else if (token == "R") { //Resolution
+            int w,h;
+            if (iss >> w >> h) {
+                image_width = w;
+                image_height = h;
+                have_res = true;
+            } else {
+                std::cerr << "Invalid R line: " << line << "\n";
+                // return 1;
+            }
+        } else if (token == "S") { //Sphere
+            double ox,oy,oz,r;
+            if (iss >> ox >> oy >> oz >> r) {
+                world.add(make_shared<sphere>(point3(ox,oy,oz), r));
+            } else {
+                std::cerr << "Invalid S line: " << line << "\n";
+                // return 1;
+            }
+        } else if (token == "T") { //triangle
+            double x1,y1,z1,x2,y2,z2,x3,y3,z3;
+            if (iss >> x1>>y1>>z1>>x2>>y2>>z2>>x3>>y3>>z3) {
+                world.add(make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3)));
+            } else {
+                std::cerr << "Invalid T line: " << line << "\n";
+                // return 1;
+            }
+        } else if (token == "V") { //View
+
+        } else if (token == "F") { //Fov
+
+        } else if (token == "L") { //Light pos
+
+        } else if (token == "M") { //Material (Phong here)
+
+        } else {
+            // unknown token: ignore or warn
+            std::clog << "Warning: unknown token '" << token << "' in line: " << line << "\n";
+        }
+    }
+
+    if (!have_eye) {
+        std::cerr << "Input file missing Eye (E) line.\n";
+        return 1;
+    }
+    if (!have_res) {
+        std::cerr << "Input file missing Resolution (R) line.\n";
+        return 1;
+    }
 
     auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
     auto material_center = make_shared<lambertian>(color(0.1, 0.2, 0.5));
