@@ -89,21 +89,3 @@ void ColorImage::outputPPM(const char* filename)
 
 	fclose(outFile);
 }
-
-// A test program that generates varying shades of reds.
-// int main(int argc, char* argv[])
-// {
-// 	ColorImage image;
-// 	int x, y;
-// 	Pixel p={0,0,0};
-
-// 	image.init(256, 256);
-// 	for (y=0; y<256; y++) {
-// 		for (x=0; x<256; x++) {
-// 			p.R = y;
-// 			image.writePixel(x, y, p);
-// 		}
-// 	}
-
-// 	image.outputPPM("reds.ppm");
-// }
