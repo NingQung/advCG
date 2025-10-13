@@ -140,7 +140,7 @@ class camera {
               color reflection_color = ray_color(scattered, depth-1, world);
 
               return (1.0 - reflect_ratio) * local_phong_color + reflect_ratio * reflection_color;
-          }
+            }
 
             return local_phong_color;
         }

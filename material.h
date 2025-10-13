@@ -98,15 +98,6 @@ class phong : public material {
 
     bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered)
     const override {
-        if (MR > 0.0) { // Reflect need
-            vec3 reflected = reflect(unit_vector(r_in.direction()), rec.normal);
-            scattered = ray(rec.p, reflected);
-
-            attenuation = albedo; 
-            return true;
-        }
-
-        attenuation = albedo;
         return false;
     }
 
