@@ -17,6 +17,7 @@ class camera {
     point3 lookfrom = point3(0,0,0);   // Point camera is looking from
     point3 lookat   = point3(0,0,-1);  // Point camera is looking at
     vec3   vup      = vec3(0,1,0);     // Camera-relative "up" direction
+    point3 light_pos = point3(0,0,0);  // hw2 light_pos
 
     void render(const hittable& world) {
         initialize();
@@ -106,17 +107,47 @@ class camera {
 
         hit_record rec;
 
-        if (world.hit(r, interval(0.001, infinity), rec)) {
-            ray scattered;
-            color attenuation;
-            if (rec.mat->scatter(r, rec, attenuation, scattered))
-                return attenuation; //hw2: disable scatter
-            return color(0,0,0);
-        }
+        if (world.hit(r, interval(0.001, infinity), rec)) { //hw2: remake ray calc after hit
+            const shared_ptr<phong> phong_mat = std::dynamic_pointer_cast<phong>(rec.mat);
+            point3 light_pos = this->light_pos;
+            vec3 light_dir = unit_vector(light_pos - rec.p);
+            vec3 view_dir = r.direction();
 
+            // calc phong color
+            color ambient_color = phong_mat->ambient(); 
+            color diffuse_color = phong_mat->diffuse(light_dir, rec.normal);
+            color specular_color = phong_mat->specular(light_dir, rec.normal, view_dir);
+
+            color local_phong_color;
+
+            // shadow
+            double dist_to_light = (light_pos - rec.p).length();
+            ray ray_shadow = ray(rec.p, light_dir);
+            hit_record shadow_rec;
+
+            if (world.hit(ray_shadow, interval(0.001, dist_to_light), shadow_rec)) { // is in shadow
+                local_phong_color = ambient_color;
+            } else {
+                local_phong_color = ambient_color + diffuse_color + specular_color;
+            }
+
+            double reflect_ratio = phong_mat->get_MR();
+
+            if (reflect_ratio > 0.0) {
+              vec3 reflected_direction = reflect(unit_vector(view_dir), rec.normal); 
+              ray scattered = ray(rec.p, reflected_direction); 
+
+              color reflection_color = ray_color(scattered, depth-1, world);
+
+              return (1.0 - reflect_ratio) * local_phong_color + reflect_ratio * reflection_color;
+          }
+
+            return local_phong_color;
+        }
+        return color(0,0,0);
         vec3 unit_direction = unit_vector(r.direction());
         auto a = 0.5*(unit_direction.y() + 1.0);
-        return a*color(0.5, 0.7, 1.0); //hw2: adjust bg light
+        return (1.0-a)*color(1.0, 1.0, 1.0) + a*color(0.5, 0.7, 1.0); //hw2: adjust bg light
     }
 };
 

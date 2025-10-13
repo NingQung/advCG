@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
 
     hittable_list world;
     camera cam;
-    cam.samples_per_pixel = 1;
+    cam.samples_per_pixel = 100;
     cam.max_depth         = 50;
 
     auto material_static = make_shared<phong>(color(0.8, 0.8, 0.8), 0.2, 0.7, 1.0, 10.0, 0.5);
@@ -107,16 +107,16 @@ int main(int argc, char** argv) {
         } else if (token == "L") { //Light pos
           double lx,ly,lz;
           if (iss >> lx>>ly>>lz) {
-              std::cerr << "Skip L line: " << line << "\n";
+              point3 light_pos(lx, ly, lz);
+              cam.light_pos = light_pos; 
           } else {
               std::cerr << "Invalid L line: " << line << "\n";
               // return 1;
           }
         } else if (token == "M") { //Material (Phong here)
           double mr,mg,mb,Ka,Kd,Ks,exps,MR;
-          if (iss >> mr>>mg>>mb>>Ka>>Ks>>Kd>>exps>>MR) {
+          if (iss >> mr>>mg>>mb>>Ka>>Kd>>Ks>>exps>>MR) {
               material_static = make_shared<phong>(color(mr, mg, mb), Ka, Kd, Ks, exps, MR);
-              std::cerr << "Skip some part of M line: " << line << "\n";
           } else {
               std::cerr << "Invalid M line: " << line << "\n";
               // return 1;

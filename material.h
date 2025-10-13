@@ -98,31 +98,47 @@ class phong : public material {
 
     bool scatter(const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered)
     const override {
-        point3 light = point3(5.0,5.0,-5.0);
-        
-        attenuation = ambient() + diffuse(light, rec.p, rec.normal);
+        if (MR > 0.0) { // Reflect need
+            vec3 reflected = reflect(unit_vector(r_in.direction()), rec.normal);
+            scattered = ray(rec.p, reflected);
 
-        vec3 reflected = reflect(r_in.direction(), rec.normal);
-        reflected = unit_vector(reflected);
-        scattered = ray(rec.p, reflected);
+            attenuation = albedo; 
+            return true;
+        }
 
-        return true;
+        attenuation = albedo;
+        return false;
+    }
+
+    color ambient() const{
+      return albedo * Ka;
+    }
+    color diffuse(vec3 light_dir, vec3 normal) const{
+      return albedo * Kd * (std::max(dot(light_dir,normal),0.0));
+    }
+    color specular(vec3 light_dir, vec3 normal, vec3 view_dir){
+      vec3 V = unit_vector(-view_dir); 
+      vec3 R = reflect(-light_dir, normal); 
+      R = unit_vector(R);
+
+      double R_dot_V = dot(R, V);
+      
+      double spec_term = std::max(0.0, R_dot_V);
+
+      if (spec_term > 0.0) {
+          spec_term = std::pow(spec_term, exps);
+      }
+
+      return color(1.0, 1.0, 1.0) * Ks * spec_term;
+    }
+    double get_MR() {return MR;}
+    color get_color(){
+      return albedo;
     }
 
   private:
     color albedo;
     double Ka,Kd,Ks,exps,MR;
-
-    color ambient() const{
-      return albedo * Ka;
-    }
-    color diffuse(point3 light_pos, point3 rec_p, vec3 normal) const{
-      vec3 light_dir = unit_vector(light_pos - rec_p);
-      return albedo * Kd * (std::max(dot(light_dir,normal),0.0));
-    }
-    color specular(vec3 light_dir, vec3 normal, vec3 ){
-      return albedo * Ka;
-    }
 };
 
 #endif
