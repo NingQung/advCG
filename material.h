@@ -107,7 +107,7 @@ class phong : public material {
     color diffuse(vec3 light_dir, vec3 normal) const{
       return albedo * Kd * (std::max(dot(light_dir,normal),0.0));
     }
-    color specular(vec3 light_dir, vec3 normal, vec3 view_dir){
+    color specular(vec3 light_dir, vec3 normal, vec3 view_dir) const{
       vec3 V = unit_vector(-view_dir); 
       vec3 R = reflect(-light_dir, normal); 
       R = unit_vector(R);

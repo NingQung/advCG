@@ -26,7 +26,6 @@ int main(int argc, char** argv) {
     double fov = 90;
     int image_width = 0, image_height = 0;
     double aspect_ratio = 0;
-    point3 light_pos;
     
 
     hittable_list world;
