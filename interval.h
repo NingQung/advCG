@@ -27,6 +27,10 @@ class interval {
         return x;
     }
 
+    void print(void) const {
+        std::cerr << min << " ~ " << max << '\n';
+    }
+
     static const interval empty, universe;
 };
 
