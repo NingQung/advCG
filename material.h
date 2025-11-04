@@ -122,7 +122,7 @@ class phong : public material {
 
       return color(1.0, 1.0, 1.0) * Ks * spec_term;
     }
-    double get_MR() {return MR;}
+    double get_MR() const {return MR;}
     color get_color(){
       return albedo;
     }

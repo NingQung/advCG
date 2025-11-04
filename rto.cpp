@@ -29,11 +29,12 @@ int main(int argc, char** argv) {
     int image_width = 0, image_height = 0;
     double aspect_ratio = 0;
     
-
     hittable_list world;
     camera cam;
     cam.samples_per_pixel = 100;
     cam.max_depth         = 50;
+    shared_ptr<hittable_list> current_group = nullptr;
+    current_group = make_shared<hittable_list>(); 
 
     auto material_static = make_shared<phong>(color(0.8, 0.8, 0.8), 0.2, 0.7, 1.0, 10.0, 0.5);
 
@@ -89,18 +90,37 @@ int main(int argc, char** argv) {
                 std::cerr << "Invalid R line: " << line << "\n";
                 // return 1;
             }
+        }  else if (token == "G") { //Group
+          int n; //group id 
+          if (iss >> n) {
+              if (current_group != nullptr) {
+                  world.add(current_group);
+              }
+              current_group = make_shared<hittable_list>(); 
+          }
         } else if (token == "S") { //Sphere
             double ox,oy,oz,r;
             if (iss >> ox >> oy >> oz >> r) {
-                world.add(make_shared<sphere>(point3(ox,oy,oz), r, material_static));
+                auto new_sphere = make_shared<sphere>(point3(ox,oy,oz), r, material_static);
+                if (current_group != nullptr) {
+                    current_group->add(new_sphere);
+                } else {
+                    world.add(new_sphere);
+                }
             } else {
                 std::cerr << "Invalid S line: " << line << "\n";
                 // return 1;
-            }
+            } 
         } else if (token == "T") { //triangle
             double x1,y1,z1,x2,y2,z2,x3,y3,z3;
             if (iss >> x1>>y1>>z1>>x2>>y2>>z2>>x3>>y3>>z3) {
-                world.add(make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3), material_static));
+                auto new_triangle = make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3), material_static);
+                if (current_group != nullptr) {
+                    current_group->add(new_triangle);
+                } else {
+                    world.add(new_triangle);
+                    std::clog << "Added Triangle to World. \n";
+                }
             } else {
                 std::cerr << "Invalid T line: " << line << "\n";
                 // return 1;
@@ -146,5 +166,9 @@ int main(int argc, char** argv) {
     cam.vup               = view_up;
     cam.vfov              = fov;
 
-    cam.render(world);
+    if (current_group != nullptr) {
+        world.add(current_group);
+    }
+    auto bvh_world = make_shared<bvh_node>(world);
+    cam.render(*bvh_world);
 }
