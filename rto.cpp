@@ -9,6 +9,8 @@
 #include "sphere.h"
 #include "triangle.h"
 
+#include <chrono>
+
 int main(int argc, char** argv) {
     if (argc < 1) {
         std::cerr << "Usage: " << argv[0] << " scene_file.txt\n";
@@ -170,5 +172,12 @@ int main(int argc, char** argv) {
         world.add(current_group);
     }
     auto bvh_world = make_shared<bvh_node>(world);
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     cam.render(*bvh_world);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::clog << "Total Rendering Time: " << duration.count() << " milliseconds\n";
 }
