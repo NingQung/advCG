@@ -23,7 +23,7 @@ class camera {
         initialize();
 
         ColorImage image;
-        image.init(image_width, image_width);
+        image.init(image_width, image_height);
         for (int j = 0; j < image_height; j++) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
             for (int i = 0; i < image_width; i++) {

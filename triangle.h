@@ -6,7 +6,13 @@
 class triangle : public hittable {
   public:
     triangle(const point3& a, const point3& b, const point3& c, shared_ptr<material> mat)
-        : v0(a), v1(b), v2(c), mat(mat), bbox(aabb(aabb(a, b), aabb(c, c))) {}
+        : v0(a), v1(b), v2(c), mat(mat), bbox(aabb(aabb(a, b), aabb(b, c))) 
+        {
+          const double PADDING_EPS = 1e-5;
+          bbox.x = bbox.x.expand(PADDING_EPS);
+          bbox.y = bbox.y.expand(PADDING_EPS);
+          bbox.z = bbox.z.expand(PADDING_EPS);
+        }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
         const double EPS = 1e-8;

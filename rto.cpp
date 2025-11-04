@@ -96,7 +96,8 @@ int main(int argc, char** argv) {
           int n; //group id 
           if (iss >> n) {
               if (current_group != nullptr) {
-                  world.add(current_group);
+                  auto group_bvh = make_shared<bvh_node>(*current_group); 
+                  world.add(group_bvh);
               }
               current_group = make_shared<hittable_list>(); 
           }
@@ -119,9 +120,9 @@ int main(int argc, char** argv) {
                 auto new_triangle = make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3), material_static);
                 if (current_group != nullptr) {
                     current_group->add(new_triangle);
+                    std::clog << "Group add.\n";
                 } else {
                     world.add(new_triangle);
-                    std::clog << "Added Triangle to World. \n";
                 }
             } else {
                 std::cerr << "Invalid T line: " << line << "\n";
@@ -169,7 +170,8 @@ int main(int argc, char** argv) {
     cam.vfov              = fov;
 
     if (current_group != nullptr) {
-        world.add(current_group);
+        auto group_bvh = make_shared<bvh_node>(*current_group);
+        world.add(group_bvh);
     }
     auto bvh_world = make_shared<bvh_node>(world);
 
