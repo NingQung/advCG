@@ -3,7 +3,7 @@
 #include "camerahw.h"
 #include "hittable.h"
 #include "hittable_list.h"
-#include "group.h"
+#include "bvh.h"
 #include "aabb.h"
 #include "material.h"
 #include "sphere.h"

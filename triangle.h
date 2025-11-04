@@ -39,8 +39,11 @@ class triangle : public hittable {
         return true;
     }
 
+    aabb bounding_box() const override { return bbox; }
+
 private:
     point3 v0, v1, v2;
     shared_ptr<material> mat;
+    aabb bbox;
 };
 #endif
