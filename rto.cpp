@@ -120,7 +120,6 @@ int main(int argc, char** argv) {
                 auto new_triangle = make_shared<triangle>(point3(x1,y1,z1), point3(x2,y2,z2), point3(x3,y3,z3), material_static);
                 if (current_group != nullptr) {
                     current_group->add(new_triangle);
-                    std::clog << "Group add.\n";
                 } else {
                     world.add(new_triangle);
                 }
