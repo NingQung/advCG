@@ -7,6 +7,8 @@
 #include "sphere.h"
 #include "triangle.h"
 
+#include <chrono>
+
 int main(int argc, char** argv) {
     if (argc < 1) {
         std::cerr << "Usage: " << argv[0] << " scene_file.txt\n";
@@ -144,5 +146,11 @@ int main(int argc, char** argv) {
     cam.vup               = view_up;
     cam.vfov              = fov;
 
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     cam.render(world);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::clog << "Total Rendering Time: " << duration.count() << " milliseconds\n";
 }
