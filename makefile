@@ -1,3 +1,3 @@
 all:
-	g++ rto.cpp -lm -o main
+	g++ -std=c++17 rto.cpp -O3 -o main
 	./main > image.ppm
