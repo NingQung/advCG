@@ -109,7 +109,9 @@ class camera {
         auto ray_direction = pixel_sample - ray_origin;
         auto ray_time = random_double();
 
-        return ray(ray_origin, ray_direction, ray_time);
+        auto wl = Wavelengths::sample();
+
+        return ray(ray_origin, ray_direction, ray_time, wl);
     }
 
     vec3 sample_square_stratified(int s_i, int s_j) const {

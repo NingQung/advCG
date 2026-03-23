@@ -36,7 +36,7 @@ class lambertian : public material {
         onb uvw(rec.normal);
         auto scatter_direction = uvw.transform(random_cosine_direction());
 
-        scattered = ray(rec.p, unit_vector(scatter_direction), r_in.time());
+        scattered = ray(rec.p, unit_vector(scatter_direction), r_in.time(), r_in.wavelengths());
         attenuation = tex->value(rec.u, rec.v, rec.p);
         pdf = dot(uvw.w(), scattered.direction()) / pi;
         return true;
@@ -60,7 +60,7 @@ class metal : public material {
     ) const override {
         vec3 reflected = reflect(r_in.direction(), rec.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
-        scattered = ray(rec.p, reflected, r_in.time());
+        scattered = ray(rec.p, reflected, r_in.time(), r_in.wavelengths());
         attenuation = albedo;
         return (dot(scattered.direction(), rec.normal) > 0);
     }
@@ -92,7 +92,7 @@ class dielectric : public material {
         else
             direction = refract(unit_direction, rec.normal, ri);
 
-        scattered = ray(rec.p, direction, r_in.time());
+        scattered = ray(rec.p, direction, r_in.time(), r_in.wavelengths());
         return true;
     }
 
@@ -130,7 +130,7 @@ class isotropic : public material {
     bool scatter(
         const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, double& pdf
     ) const override {
-        scattered = ray(rec.p, random_unit_vector(), r_in.time());
+        scattered = ray(rec.p, random_unit_vector(), r_in.time(), r_in.wavelengths());
         attenuation = tex->value(rec.u, rec.v, rec.p);
         pdf = 1 / (4 * pi);
         return true;
