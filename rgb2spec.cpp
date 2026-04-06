@@ -19,7 +19,7 @@ RGB2Spec *rgb2spec_load(const char *filename) {
         return NULL;
     }
 
-    printf("Loading \"%s\" .. \n", filename);
+    // printf("Loading \"%s\" .. \n", filename);
     RGB2Spec *m = (RGB2Spec *) malloc(sizeof(RGB2Spec));
     if (!m || fread(&m->res, sizeof(uint32_t), 1, f) != 1) {
         fclose(f);
