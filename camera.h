@@ -142,15 +142,18 @@ class camera {
 
     SpectralEnergy ray_color(const ray& r, int depth, const hittable& world) const {
         hit_record rec;
+        // If the ray hits nothing, return the background color.
         if (depth <= 0)
             return SpectralEnergy(0.0, 0.0, 0.0, 0.0);
 
         if (world.hit(r, interval(0.001, infinity), rec)) {
             ray scattered;
             SpectralEnergy attenuation;
-            SpectralEnergy color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
+            double pdf_value;
 
-            if (rec.mat->scatter(r, rec, attenuation, scattered))
+            SpectralEnergy color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
+
+            if (rec.mat->scatter(r, rec, attenuation, scattered, pdf_value))
                 return color_from_emission + attenuation * ray_color(scattered, depth-1, world);
             
             return color_from_emission;
