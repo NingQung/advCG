@@ -5,11 +5,11 @@
 #include "material.h"
 #include "quad.h"
 #include "sphere.h"
-#include "rgb2spec.h"
+#include "external/rgb2spec.h"
 RGB2Spec *g_rgb2spec_model = nullptr;
 
 int main() {
-    g_rgb2spec_model = rgb2spec_load("jakob-and-hanika-2019-srgb.coeff");
+    g_rgb2spec_model = rgb2spec_load("external/jakob-and-hanika-2019-srgb.coeff");
     if (!g_rgb2spec_model) {
         std::cerr << "Failed to load rgb2spec model!\n";
         return -1;

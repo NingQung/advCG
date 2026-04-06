@@ -1,7 +1,7 @@
 #ifndef SPECTRAL_H
 #define SPECTRAL_H
 
-#include "rgb2spec.h"
+#include "external/rgb2spec.h"
 // Global pointer to the RGB-to-Spectrum model
 extern RGB2Spec *g_rgb2spec_model;
 
