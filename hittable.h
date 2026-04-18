@@ -50,7 +50,7 @@ class translate : public hittable {
     }
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
         // Move the ray backwards by the offset
-        ray offset_r(r.origin() - offset, r.direction(), r.time());
+        ray offset_r(r.origin() - offset, r.direction(), r.time(), r.wavelengths());
 
         // Determine whether an intersection exists along the offset ray (and if so, where)
         if (!object->hit(offset_r, ray_t, rec))
@@ -119,7 +119,7 @@ class rotate_y : public hittable {
             (sin_theta * r.direction().x()) + (cos_theta * r.direction().z())
         );
 
-        ray rotated_r(origin, direction, r.time());
+        ray rotated_r(origin, direction, r.time(), r.wavelengths());
 
         // Determine whether an intersection exists in object space (and if so, where).
 

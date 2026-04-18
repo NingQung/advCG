@@ -5,12 +5,21 @@
 #include "material.h"
 #include "quad.h"
 #include "sphere.h"
+#include "external/rgb2spec.h"
+RGB2Spec *g_rgb2spec_model = nullptr;
 
 int main() {
+    g_rgb2spec_model = rgb2spec_load("external/jakob-and-hanika-2019-srgb.coeff");
+    if (!g_rgb2spec_model) {
+        std::cerr << "Failed to load rgb2spec model!\n";
+        return -1;
+    }
     hittable_list world;
 
     auto red   = make_shared<lambertian>(color(.65, .05, .05));
     auto white = make_shared<lambertian>(color(.73, .73, .73));
+    auto blue = make_shared<lambertian>(color(.05, .05, .65));
+    auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     auto light = make_shared<diffuse_light>(color(15, 15, 15));
 
@@ -47,7 +56,7 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 5000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
 
@@ -58,5 +67,7 @@ int main() {
 
     cam.defocus_angle = 0;
 
+    rgb2spec_free(g_rgb2spec_model);
     cam.render(world, lights);
+    return 0;
 }

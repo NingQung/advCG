@@ -33,7 +33,11 @@ class camera {
                 for (int s_j = 0; s_j < sqrt_spp; s_j++) {
                     for (int s_i = 0; s_i < sqrt_spp; s_i++) {
                         ray r = get_ray(i, j, s_i, s_j);
-                        pixel_color += ray_color(r, max_depth, world, lights);
+                        SpectralEnergy sample_energy = ray_color(r, max_depth, world);
+                        
+                        // Immediately convert this sample's spectral energy to RGB
+                        vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
+                        pixel_color += sample_rgb;
                     }
                 }
                 write_color(std::cout, pixel_samples_scale * pixel_color);
@@ -110,7 +114,9 @@ class camera {
         auto ray_direction = pixel_sample - ray_origin;
         auto ray_time = random_double();
 
-        return ray(ray_origin, ray_direction, ray_time);
+        auto wl = Wavelengths::sample();
+
+        return ray(ray_origin, ray_direction, ray_time, wl);
     }
 
     vec3 sample_square_stratified(int s_i, int s_j) const {
@@ -135,45 +141,26 @@ class camera {
     }
 
 
-    color ray_color(const ray& r, int depth, const hittable& world, const hittable& lights)
-    const {
-        // If we've exceeded the ray bounce limit, no more light is gathered.
-        if (depth <= 0)
-            return color(0,0,0);
-
+    SpectralEnergy ray_color(const ray& r, int depth, const hittable& world) const {
         hit_record rec;
-
         // If the ray hits nothing, return the background color.
-        if (!world.hit(r, interval(0.001, infinity), rec))
-            return background;
+        if (depth <= 0)
+            return SpectralEnergy(0.0, 0.0, 0.0, 0.0);
 
-        scatter_record srec;
-        color color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
+        if (world.hit(r, interval(0.001, infinity), rec)) {
+            ray scattered;
+            SpectralEnergy attenuation;
+            double pdf_value;
 
-        if (!rec.mat->scatter(r, rec, srec))
+            SpectralEnergy color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
+
+            if (rec.mat->scatter(r, rec, attenuation, scattered, pdf_value))
+                return color_from_emission + attenuation * ray_color(scattered, depth-1, world);
+            
             return color_from_emission;
-        
-        if (srec.skip_pdf) {
-            return srec.attenuation * ray_color(srec.skip_pdf_ray, depth-1, world, lights);
         }
 
-        auto p0 = make_shared<hittable_pdf>(lights, rec.p);
-        auto p1 = make_shared<cosine_pdf>(rec.normal);
-        mixture_pdf mixed_pdf(p0, p1);
-
-        auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
-        mixture_pdf p(light_ptr, srec.pdf_ptr);
-
-        ray scattered = ray(rec.p, p.generate(), r.time());
-        auto pdf_value = p.value(scattered.direction());
-
-        double scattering_pdf = rec.mat->scattering_pdf(r, rec, scattered);
-
-        color sample_color = ray_color(scattered, depth-1, world, lights);
-        color color_from_scatter =
-            (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
-
-        return color_from_emission + color_from_scatter;
+        return SpectralEnergy(0.0, 0.0, 0.0, 0.0);
     }
 };
 
