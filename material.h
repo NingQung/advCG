@@ -69,24 +69,39 @@ class lambertian : public material {
     shared_ptr<texture> tex;
 };
 
-// class metal : public material {
-//   public:
-//     metal(const color& albedo, double fuzz) : albedo(albedo), fuzz(fuzz < 1 ? fuzz : 1) {}
+class metal : public material {
+  public:
+    metal(const color& albedo, double fuzz) : albedo(albedo), fuzz(fuzz < 1 ? fuzz : 1) {}
 
-//     bool scatter(
-//         const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, double& pdf
-//     ) const override {
-//         vec3 reflected = reflect(r_in.direction(), rec.normal);
-//         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
-//         scattered = ray(rec.p, reflected, r_in.time(), r_in.wavelengths());
-//         attenuation = albedo;
-//         return (dot(scattered.direction(), rec.normal) > 0);
-//     }
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
+        vec3 reflected = reflect(r_in.direction(), rec.normal);
+        reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
+        float rgb[3] = { (float)albedo.x(), (float)albedo.y(), (float)albedo.z() };
+        
+        // 2. Clamp RGB to [0, 1] for safety
+        for(int i=0; i<3; i++) {
+            if(rgb[i] < 0.0f) rgb[i] = 0.0f;
+            if(rgb[i] > 1.0f) rgb[i] = 1.0f;
+        }
 
-//   private:
-//     color albedo;
-//     double fuzz;
-// };
+        // 3. Fetch spectral coefficients using rgb2spec
+        float coeffs[3];
+        rgb2spec_fetch(g_rgb2spec_model, rgb, coeffs);
+
+        // 4. Evaluate reflectance for each carried wavelength
+        for(int i=0; i<4; i++) {
+            srec.attenuation.energy[i] = rgb2spec_eval_fast(coeffs, r_in.wavelengths().lambda[i]);
+        }
+        srec.pdf_ptr = nullptr;
+        srec.skip_pdf = true;
+        srec.skip_pdf_ray = ray(rec.p, reflected, r_in.time());
+        return true;
+    }
+
+  private:
+    color albedo;
+    double fuzz;
+};
 
 // class dielectric : public material {
 //   public:
