@@ -150,11 +150,11 @@ class camera {
         if (world.hit(r, interval(0.001, infinity), rec)) {
             ray scattered;
             SpectralEnergy attenuation;
-            double pdf_value;
+            scatter_record srec;
 
             SpectralEnergy color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
 
-            if (rec.mat->scatter(r, rec, attenuation, scattered, pdf_value))
+            if (rec.mat->scatter(r, rec, attenuation, srec))
                 return color_from_emission + attenuation * ray_color(scattered, depth-1, world);
             
             return color_from_emission;

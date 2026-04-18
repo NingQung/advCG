@@ -27,7 +27,7 @@ class material {
     }
 
     virtual bool scatter(
-        const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, ray& scattered, double& pdf
+        const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, scatter_record& srec
     ) const {
         return false;
     }
@@ -53,7 +53,7 @@ class lambertian : public material {
         auto scatter_direction = uvw.transform(random_cosine_direction());
 
         // Create scattered ray carrying the same wavelengths
-        scattered = ray(rec.p, unit_vector(scatter_direction), r_in.time(), r_in.wavelengths());
+        //scattered = ray(rec.p, unit_vector(scatter_direction), r_in.time(), r_in.wavelengths());
         
         // 1. Get RGB color from texture
         color albedo_rgb = tex->value(rec.u, rec.v, rec.p);
@@ -94,7 +94,7 @@ class metal : public material {
   public:
     metal(const color& albedo, double fuzz) : albedo(albedo), fuzz(fuzz < 1 ? fuzz : 1) {}
 
-    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
+    bool scatter(const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, scatter_record& srec) const override {
         vec3 reflected = reflect(r_in.direction(), rec.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
         srec.attenuation = albedo;
@@ -103,9 +103,11 @@ class metal : public material {
         srec.skip_pdf_ray = ray(rec.p, reflected, r_in.time());
 
         return true;
-
+    }
   private:
     shared_ptr<texture> tex;
+    color albedo;
+    double fuzz;
 };
 
 
@@ -118,7 +120,7 @@ class diffuse_light : public material {
         return emit_color;
     }
     
-    bool scatter(const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, ray& scattered, double& pdf) const override {
+    bool scatter(const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, scatter_record& srec) const override {
         return false;
     }
 
@@ -130,7 +132,7 @@ class dielectric : public material {
   public:
     dielectric(double refraction_index) : refraction_index(refraction_index) {}
 
-    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
+    bool scatter(const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, scatter_record& srec) const override {
         srec.attenuation = color(1.0, 1.0, 1.0);
         srec.pdf_ptr = nullptr;
         srec.skip_pdf = true;
