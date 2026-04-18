@@ -2,7 +2,6 @@
 #define CAMERA_H
 
 #include "hittable.h"
-#include "pdf.h"
 #include "material.h"
 
 class camera {
@@ -21,7 +20,7 @@ class camera {
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
-    void render(const hittable& world, const hittable& lights) {
+    void render(const hittable& world) {
         initialize();
 
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
