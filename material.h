@@ -105,13 +105,28 @@ class metal : public material {
 
 class dielectric : public material {
   public:
-    dielectric(double refraction_index) : refraction_index(refraction_index) {}
+    // We use Cauchy's equation for simple dispersion:
+    // IOR(lambda) = A + B / (lambda^2)
+    // A: base IOR (e.g., 1.5 for glass)
+    // B: dispersion strength (e.g., 0.005 to 0.02)
+    dielectric(double base_ior, double dispersion_strength) 
+      : A(base_ior), B(dispersion_strength) {}
 
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
-        srec.attenuation = SpectralEnergy(1.0, 1.0, 1.0, 1.0);
+        // Glass absorbs very little energy, so attenuation remains 1.0 for all channels
+        srec.attenuation = SpectralEnergy(1.0, 1.0, 1.0, 1.0); 
         srec.pdf_ptr = nullptr;
         srec.skip_pdf = true;
-        double ri = rec.front_face ? (1.0/refraction_index) : refraction_index;
+
+        // 1. Get the Hero Wavelength (assume lambda[0] is our hero)
+        double hero_lambda = r_in.wavelengths().lambda[0];
+        
+        // 2. Calculate dynamic IOR using Cauchy's Equation
+        // Convert lambda from nanometers to micrometers to fit typical Cauchy coefficients
+        double lambda_um = hero_lambda * 0.001;
+        double current_ior = A + (B / (lambda_um * lambda_um));
+
+        double ri = rec.front_face ? (1.0 / current_ior) : current_ior;
 
         vec3 unit_direction = unit_vector(r_in.direction());
         double cos_theta = std::fmin(dot(-unit_direction, rec.normal), 1.0);
@@ -120,19 +135,20 @@ class dielectric : public material {
         bool cannot_refract = ri * sin_theta > 1.0;
         vec3 direction;
 
-        if (cannot_refract || reflectance(cos_theta, ri) > random_double())
+        if (cannot_refract || reflectance(cos_theta, ri) > random_double()) {
             direction = reflect(unit_direction, rec.normal);
-        else
+        } else {
             direction = refract(unit_direction, rec.normal, ri);
+        }
 
+        // 3. Construct the scattered ray, carrying all original wavelengths along the hero's path
         srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), r_in.wavelengths());
         return true;
     }
 
   private:
-    // Refractive index in vacuum or air, or the ratio of the material's refractive index over
-    // the refractive index of the enclosing media
-    double refraction_index;
+    double A; // Base index of refraction
+    double B; // Dispersion coefficient
 
     static double reflectance(double cosine, double refraction_index) {
         // Use Schlick's approximation for reflectance.
