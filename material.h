@@ -2,25 +2,31 @@
 #define MATERIAL_H
 
 #include "hittable.h"
-#include "onb.h"
+#include "pdf.h"
 #include "texture.h"
+
+class scatter_record {
+  public:
+    SpectralEnergy attenuation;
+    shared_ptr<pdf> pdf_ptr;
+    bool skip_pdf;
+    ray skip_pdf_ray;
+};
 
 class material {
   public:
     virtual ~material() = default;
 
-    virtual SpectralEnergy emitted(double u, double v, const point3& p) const {
+    virtual SpectralEnergy emitted(const ray& r_in, const hit_record& rec, double u, double v, const point3& p) const {
         return SpectralEnergy(0.0, 0.0, 0.0, 0.0);
-    }
-
-    virtual bool scatter(
-        const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, ray& scattered, double& pdf
-    ) const {
-        return false;
     }
 
     virtual double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const {
         return 0;
+    }
+
+    virtual bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const {
+        return false;
     }
 };
 
@@ -29,15 +35,7 @@ class lambertian : public material {
     lambertian(const color& albedo) : tex(make_shared<solid_color>(albedo)) {}
     lambertian(shared_ptr<texture> tex) : tex(tex) {}
 
-    bool scatter(
-        const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, ray& scattered, double& pdf
-    ) const override {
-        onb uvw(rec.normal);
-        auto scatter_direction = uvw.transform(random_cosine_direction());
-
-        // Create scattered ray carrying the same wavelengths
-        scattered = ray(rec.p, unit_vector(scatter_direction), r_in.time(), r_in.wavelengths());
-        
+    bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
         // 1. Get RGB color from texture
         color albedo_rgb = tex->value(rec.u, rec.v, rec.p);
         float rgb[3] = { (float)albedo_rgb.x(), (float)albedo_rgb.y(), (float)albedo_rgb.z() };
@@ -54,15 +52,17 @@ class lambertian : public material {
 
         // 4. Evaluate reflectance for each carried wavelength
         for(int i=0; i<4; i++) {
-            attenuation.energy[i] = rgb2spec_eval_fast(coeffs, r_in.wavelengths().lambda[i]);
+            srec.attenuation.energy[i] = rgb2spec_eval_fast(coeffs, r_in.wavelengths().lambda[i]);
         }
 
-        pdf = dot(uvw.w(), scattered.direction()) / pi;
+        srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
+        srec.skip_pdf = false;
         return true;
     }
 
     double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const override {
-        return 1.0 / (2.0 * pi);
+        auto cos_theta = dot(rec.normal, unit_vector(scattered.direction()));
+        return cos_theta < 0 ? 0 : cos_theta/pi;
     }
 
   private:
@@ -132,12 +132,10 @@ class diffuse_light : public material {
     diffuse_light(const SpectralEnergy& emit) : emit_color(emit) {}
     diffuse_light(const color& emit) : emit_color(emit.x(), emit.y(), emit.z(), emit.x()) {}
     
-    SpectralEnergy emitted(double u, double v, const point3& p) const override {
+    SpectralEnergy emitted(const ray& r_in, const hit_record& rec, double u, double v, const point3& p) const override {
+        if (!rec.front_face)
+            return SpectralEnergy(0,0,0,0);
         return emit_color;
-    }
-    
-    bool scatter(const ray& r_in, const hit_record& rec, SpectralEnergy& attenuation, ray& scattered, double& pdf) const override {
-        return false;
     }
 
   private:

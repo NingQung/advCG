@@ -22,6 +22,8 @@ int main() {
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     auto light = make_shared<diffuse_light>(color(15, 15, 15));
+    // shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
+    // auto glass = make_shared<dielectric>(1.5);
 
     // Cornell box sides
     world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
@@ -32,6 +34,11 @@ int main() {
 
     // Light
     world.add(make_shared<quad>(point3(213,554,227), vec3(130,0,0), vec3(0,0,105), light));
+
+    auto empty_material = shared_ptr<material>();
+    hittable_list lights;
+    //lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), empty_material));
+    lights.add(make_shared<sphere>(point3(190, 90, 190), 90, empty_material));
 
     // Box 1
     shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
@@ -49,7 +56,7 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 5000;
+    cam.samples_per_pixel = 20;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
 
@@ -60,7 +67,7 @@ int main() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, lights);
 
     rgb2spec_free(g_rgb2spec_model);
     return 0;
