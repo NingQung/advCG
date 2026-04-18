@@ -23,7 +23,7 @@ int main() {
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     auto light = make_shared<diffuse_light>(color(15, 15, 15));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
-    // auto glass = make_shared<dielectric>(1.5);
+    auto glass = make_shared<dielectric>(1.5);
 
     // Cornell box sides
     world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
@@ -41,13 +41,13 @@ int main() {
     //lights.add(make_shared<sphere>(point3(190, 90, 190), 90, empty_material));
 
     // Box 1
-    shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
+    shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), aluminum);
     box1 = make_shared<rotate_y>(box1, 15);
     box1 = make_shared<translate>(box1, vec3(265,0,295));
     world.add(box1);
 
     // Box 2
-    shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), white);
+    shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
     box2 = make_shared<rotate_y>(box2, -18);
     box2 = make_shared<translate>(box2, vec3(130,0,65));
     world.add(box2);
