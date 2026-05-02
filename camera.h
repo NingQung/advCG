@@ -145,13 +145,13 @@ class camera {
         
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0)
-            return SpectralEnergy(0.0, 0.0, 0.0, 0.0);
+            return SpectralEnergy(0.0);
 
         hit_record rec;
 
         // If the ray hits nothing, return the background color.
         if (!world.hit(r, interval(0.001, infinity), rec))
-            return SpectralEnergy(0.0, 0.0, 0.0, 0.0);
+            return SpectralEnergy(0.0);
 
         scatter_record srec;
         SpectralEnergy color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);

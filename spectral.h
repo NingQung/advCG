@@ -8,6 +8,8 @@ extern RGB2Spec *g_rgb2spec_model;
 const double WL_MIN = 390.0;
 const double WL_MAX = 830.0;
 
+#define WL_PER_RAY 1
+
 class mat3 {
   public:
     double e[3][3];
@@ -46,56 +48,49 @@ inline mat3 transpose(const mat3& m) {
 }
 
 struct Wavelengths {
-    double lambda[4];
+    double lambda;
     
     Wavelengths() {}
     
     static Wavelengths sample() {
         Wavelengths wl;
-        for (int i = 0; i < 4; i++) {
-            wl.lambda[i] = WL_MIN + random_double() * (WL_MAX - WL_MIN);
-        }
+        wl.lambda = WL_MIN + random_double() * (WL_MAX - WL_MIN);
         return wl;
     }
 };
 
 struct SpectralEnergy {
-    double energy[4];
+    double energy;
     
     SpectralEnergy() {
-        for(int i=0; i<4; ++i) energy[i] = 0.0;
+        energy = 0.0;
     }
     
-    SpectralEnergy(double e0, double e1, double e2, double e3) {
-        energy[0] = e0; energy[1] = e1;
-        energy[2] = e2; energy[3] = e3;
+    SpectralEnergy(double e0) {
+        energy = e0;
     }
 
     SpectralEnergy& operator+=(const SpectralEnergy& v) {
-        energy[0] += v.energy[0]; energy[1] += v.energy[1];
-        energy[2] += v.energy[2]; energy[3] += v.energy[3];
+        energy += v.energy;
         return *this;
     }
 
     SpectralEnergy& operator*=(double t) {
-        energy[0] *= t; energy[1] *= t;
-        energy[2] *= t; energy[3] *= t;
+        energy *= t;
         return *this;
     }
 };
 
 inline SpectralEnergy operator+(const SpectralEnergy& u, const SpectralEnergy& v) {
-    return SpectralEnergy(u.energy[0] + v.energy[0], u.energy[1] + v.energy[1],
-                          u.energy[2] + v.energy[2], u.energy[3] + v.energy[3]);
+    return SpectralEnergy(u.energy + v.energy);
 }
 
 inline SpectralEnergy operator*(const SpectralEnergy& u, const SpectralEnergy& v) {
-    return SpectralEnergy(u.energy[0] * v.energy[0], u.energy[1] * v.energy[1],
-                          u.energy[2] * v.energy[2], u.energy[3] * v.energy[3]);
+    return SpectralEnergy(u.energy * v.energy);
 }
 
 inline SpectralEnergy operator*(double t, const SpectralEnergy& v) {
-    return SpectralEnergy(t*v.energy[0], t*v.energy[1], t*v.energy[2], t*v.energy[3]);
+    return SpectralEnergy(t*v.energy);
 }
 
 inline SpectralEnergy operator*(const SpectralEnergy& v, double t) {
@@ -122,21 +117,20 @@ inline vec3 spectral_to_rgb(const SpectralEnergy& se, const Wavelengths& wl) {
     double y = 0.0;
     double z = 0.0;
     
-    for (int i = 0; i < 4; i++) {
-        int wl_index = int(wl.lambda[i]) - int(WL_MIN);
-        
-        // Ensure index is within bounds (390 to 830)
-        if (wl_index >= 0 && wl_index <= int(WL_MAX - WL_MIN)) {
-            // Uncomment the following lines after pasting the CMF array
-            vec3 cmf = CIE2006_CMF_XYZ[wl_index];
-            x += cmf.e[0] * se.energy[i];
-            y += cmf.e[1] * se.energy[i];
-            z += cmf.e[2] * se.energy[i];
-        }
+    int wl_index = int(wl.lambda) - int(WL_MIN);
+    
+    // Ensure index is within bounds (390 to 830)
+    if (wl_index >= 0 && wl_index <= int(WL_MAX - WL_MIN)) {
+        // Uncomment the following lines after pasting the CMF array
+        vec3 cmf = CIE2006_CMF_XYZ[wl_index];
+        x += cmf.e[0] * se.energy;
+        y += cmf.e[1] * se.energy;
+        z += cmf.e[2] * se.energy;
     }
+
     
     // Normalize and scale by the probability of sampling these wavelengths
-    double scale = (WL_MAX - WL_MIN) / (4.0 * CIE2006_Y_Integral);
+    double scale = (WL_MAX - WL_MIN) / (WL_PER_RAY * CIE2006_Y_Integral);
     vec3 xyz_color(x * scale, y * scale, z * scale);
     
     // Convert XYZ to linear RGB using the matrix
