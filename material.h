@@ -18,7 +18,7 @@ class material {
     virtual ~material() = default;
 
     virtual SpectralEnergy emitted(const ray& r_in, const hit_record& rec, double u, double v, const point3& p) const {
-        return SpectralEnergy(0.0, 0.0, 0.0, 0.0);
+        return SpectralEnergy(0.0);
     }
 
     virtual double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const {
@@ -114,7 +114,7 @@ class dielectric : public material {
 
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
         // Glass absorbs very little energy, so attenuation remains 1.0 for all channels
-        srec.attenuation = SpectralEnergy(1.0, 1.0, 1.0, 1.0); 
+        srec.attenuation = SpectralEnergy(1.0); 
         srec.pdf_ptr = nullptr;
         srec.skip_pdf = true;
 
@@ -161,11 +161,12 @@ class dielectric : public material {
 class diffuse_light : public material {
   public:
     diffuse_light(const SpectralEnergy& emit) : emit_color(emit) {}
-    diffuse_light(const color& emit) : emit_color(emit.x(), emit.y(), emit.z(), emit.x()) {}
+    diffuse_light(const color& emit) : emit_color(emit.x()) {}
+    diffuse_light(const double& emit) : emit_color(emit) {}
     
     SpectralEnergy emitted(const ray& r_in, const hit_record& rec, double u, double v, const point3& p) const override {
         if (!rec.front_face)
-            return SpectralEnergy(0,0,0,0);
+            return SpectralEnergy(0.0);
         return emit_color;
     }
 

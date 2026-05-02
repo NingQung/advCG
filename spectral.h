@@ -8,6 +8,8 @@ extern RGB2Spec *g_rgb2spec_model;
 const double WL_MIN = 390.0;
 const double WL_MAX = 830.0;
 
+#define WL_PER_RAY 4
+
 class mat3 {
   public:
     double e[3][3];
@@ -46,13 +48,13 @@ inline mat3 transpose(const mat3& m) {
 }
 
 struct Wavelengths {
-    double lambda[4];
+    double lambda[WL_PER_RAY];
     
     Wavelengths() {}
     
     static Wavelengths sample() {
         Wavelengths wl;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < WL_PER_RAY; i++) {
             wl.lambda[i] = WL_MIN + random_double() * (WL_MAX - WL_MIN);
         }
         return wl;
@@ -60,10 +62,14 @@ struct Wavelengths {
 };
 
 struct SpectralEnergy {
-    double energy[4];
+    double energy[WL_PER_RAY];
     
     SpectralEnergy() {
-        for(int i=0; i<4; ++i) energy[i] = 0.0;
+        for(int i=0; i<WL_PER_RAY; ++i) energy[i] = 0.0;
+    }
+
+    SpectralEnergy(double e0) {
+        for(int i=0; i<WL_PER_RAY; ++i) energy[i] = e0;
     }
     
     SpectralEnergy(double e0, double e1, double e2, double e3) {
@@ -72,14 +78,12 @@ struct SpectralEnergy {
     }
 
     SpectralEnergy& operator+=(const SpectralEnergy& v) {
-        energy[0] += v.energy[0]; energy[1] += v.energy[1];
-        energy[2] += v.energy[2]; energy[3] += v.energy[3];
+        for(int i=0; i<WL_PER_RAY; ++i) energy[i] += v.energy[1];
         return *this;
     }
 
     SpectralEnergy& operator*=(double t) {
-        energy[0] *= t; energy[1] *= t;
-        energy[2] *= t; energy[3] *= t;
+        for(int i=0; i<WL_PER_RAY; ++i) energy[i] *= t;
         return *this;
     }
 };
@@ -136,7 +140,7 @@ inline vec3 spectral_to_rgb(const SpectralEnergy& se, const Wavelengths& wl) {
     }
     
     // Normalize and scale by the probability of sampling these wavelengths
-    double scale = (WL_MAX - WL_MIN) / (4.0 * CIE2006_Y_Integral);
+    double scale = (WL_MAX - WL_MIN) / (WL_PER_RAY * CIE2006_Y_Integral);
     vec3 xyz_color(x * scale, y * scale, z * scale);
     
     // Convert XYZ to linear RGB using the matrix
