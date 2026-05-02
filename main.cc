@@ -5,6 +5,7 @@
 #include "material.h"
 #include "quad.h"
 #include "sphere.h"
+#include "triangle.h"
 #include "external/rgb2spec.h"
 RGB2Spec *g_rgb2spec_model = nullptr;
 
@@ -24,13 +25,17 @@ int main() {
     auto light = make_shared<diffuse_light>(color(15, 15, 15));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
     auto glass = make_shared<dielectric>(1.7, 0.08);
+    auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
+    auto checker_mat = make_shared<lambertian>(checker_tex);
+    auto wave_tex = make_shared<wave_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
+    auto wave_mat = make_shared<lambertian>(wave_tex);
 
     // Cornell box sides
     world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
     world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
-    world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white));
-    world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white));
-    world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), white));
+    world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
+    world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
+    world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
     // Light
     world.add(make_shared<quad>(point3(213,554,227), vec3(130,0,0), vec3(0,0,105), light));
@@ -40,14 +45,19 @@ int main() {
     lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), empty_material));
     //lights.add(make_shared<sphere>(point3(190, 90, 190), 90, empty_material));
 
+    // prism
+    shared_ptr<hittable> prism1 = prism(point3(0,0,0), point3(-120,0,120), point3(120,0,120), 400.0, glass);
+    prism1 = make_shared<translate>(prism1, vec3(275,0,175));
+    world.add(prism1);
+
     // Box 1
-    shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265,0,295));
-    world.add(box1);
+    // shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
+    // box1 = make_shared<rotate_y>(box1, 15);
+    // box1 = make_shared<translate>(box1, vec3(265,0,295));
+    // world.add(box1);
 
     // Glass Sphere
-    world.add(make_shared<sphere>(point3(190,90,190), 90, glass));
+    // world.add(make_shared<sphere>(point3(190,90,190), 90, glass));
 
     // Box 2
     // shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
@@ -59,7 +69,7 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 2000;
+    cam.samples_per_pixel = 1000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
 

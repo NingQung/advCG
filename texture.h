@@ -86,4 +86,68 @@ class noise_texture : public texture {
     double scale;
 };
 
+class wave_texture : public texture {
+  public:
+    wave_texture(double _scale, shared_ptr<texture> _even, shared_ptr<texture> _odd)
+      : inv_scale(1.0 / _scale), even(_even), odd(_odd) {}
+
+    wave_texture(double _scale, const color& c1, const color& c2)
+      : inv_scale(1.0 / _scale),
+        even(make_shared<solid_color>(c1)),
+        odd(make_shared<solid_color>(c2)) {}
+
+    color value(double u, double v, const point3& p) const override {
+        // Use only the x-coordinate to create stripes (zebra crossing effect).
+        // You can change p.x() to p.y() or p.z() to change the stripe orientation.
+        auto xInteger = static_cast<int>(std::floor(inv_scale * p.x()));
+
+        bool isEven = xInteger % 2 == 0;
+
+        if (isEven)
+            return even->value(u, v, p);
+        else
+            return odd->value(u, v, p);
+    }
+
+  private:
+    double inv_scale;
+    shared_ptr<texture> even;
+    shared_ptr<texture> odd;
+};
+class rotate_texture : public texture {
+  public:
+    rotate_texture(shared_ptr<texture> p, double angle_degrees, const vec3& axis = vec3(0, 1, 0))
+        : tex(p)
+    {
+        auto radians = degrees_to_radians(angle_degrees);
+        sin_theta = std::sin(radians);
+        cos_theta = std::cos(radians);
+        unit_axis = unit_vector(axis);
+    }
+
+    color value(double u, double v, const point3& p) const override {
+        // To rotate the texture visually by theta, we apply an inverse rotation (-theta)
+        // to the sampling coordinates.
+        double inv_sin = -sin_theta;
+        
+        // 1. Rotate 3D point using Rodrigues' rotation formula
+        vec3 k = unit_axis;
+        point3 p_rot = p * cos_theta + cross(k, p) * inv_sin + k * dot(k, p) * (1.0 - cos_theta);
+
+        // 2. Rotate 2D UV coordinates around the center (0.5, 0.5)
+        double u_shift = u - 0.5;
+        double v_shift = v - 0.5;
+        double u_rot = u_shift * cos_theta - v_shift * inv_sin + 0.5;
+        double v_rot = u_shift * inv_sin + v_shift * cos_theta + 0.5;
+
+        return tex->value(u_rot, v_rot, p_rot);
+    }
+
+  private:
+    shared_ptr<texture> tex;
+    double sin_theta;
+    double cos_theta;
+    vec3 unit_axis;
+};
+
 #endif
