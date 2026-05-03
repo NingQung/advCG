@@ -126,7 +126,7 @@ inline vec3 spectral_to_rgb(const SpectralEnergy& se, const Wavelengths& wl) {
     double y = 0.0;
     double z = 0.0;
     
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < WL_PER_RAY; i++) {
         int wl_index = int(wl.lambda[i]) - int(WL_MIN);
         
         // Ensure index is within bounds (390 to 830)
