@@ -5,10 +5,15 @@
 // Global pointer to the RGB-to-Spectrum model
 extern RGB2Spec *g_rgb2spec_model;
 
+// original 390~830
+// mono-test 
+const double wl_delta = 20.0;
+const double WL_SAMPLE_MIN = 390.0 + wl_delta*2;
+const double WL_SAMPLE_MAX = 830.0 - wl_delta*2;
 const double WL_MIN = 390.0;
 const double WL_MAX = 830.0;
 
-#define WL_PER_RAY 4
+#define WL_PER_RAY 5
 
 class mat3 {
   public:
@@ -54,9 +59,15 @@ struct Wavelengths {
     
     static Wavelengths sample() {
         Wavelengths wl;
-        for (int i = 0; i < WL_PER_RAY; i++) {
-            wl.lambda[i] = WL_MIN + random_double() * (WL_MAX - WL_MIN);
-        }
+        double wl_temp = WL_SAMPLE_MIN + random_double() * (WL_SAMPLE_MAX - WL_SAMPLE_MIN);
+        wl.lambda[0] = wl_temp;
+        wl.lambda[1] = wl_temp - wl_delta*2;
+        wl.lambda[2] = wl_temp - wl_delta;
+        wl.lambda[3] = wl_temp + wl_delta*2;
+        wl.lambda[4] = wl_temp + wl_delta;
+        // for (int i = 0; i < WL_PER_RAY; i++) {
+        //     wl.lambda[i] = WL_MIN + random_double() * (WL_MAX - WL_MIN);
+        // }
         return wl;
     }
 };
@@ -72,9 +83,10 @@ struct SpectralEnergy {
         for(int i=0; i<WL_PER_RAY; ++i) energy[i] = e0;
     }
     
-    SpectralEnergy(double e0, double e1, double e2, double e3) {
+    SpectralEnergy(double e0, double e1, double e2, double e3, double e4) {
         energy[0] = e0; energy[1] = e1;
         energy[2] = e2; energy[3] = e3;
+        energy[4] = e4;
     }
 
     SpectralEnergy& operator+=(const SpectralEnergy& v) {
@@ -90,16 +102,18 @@ struct SpectralEnergy {
 
 inline SpectralEnergy operator+(const SpectralEnergy& u, const SpectralEnergy& v) {
     return SpectralEnergy(u.energy[0] + v.energy[0], u.energy[1] + v.energy[1],
-                          u.energy[2] + v.energy[2], u.energy[3] + v.energy[3]);
+                          u.energy[2] + v.energy[2], u.energy[3] + v.energy[3],
+                          u.energy[4] + v.energy[4]);
 }
 
 inline SpectralEnergy operator*(const SpectralEnergy& u, const SpectralEnergy& v) {
     return SpectralEnergy(u.energy[0] * v.energy[0], u.energy[1] * v.energy[1],
-                          u.energy[2] * v.energy[2], u.energy[3] * v.energy[3]);
+                          u.energy[2] * v.energy[2], u.energy[3] * v.energy[3],
+                          u.energy[4] * v.energy[4]);
 }
 
 inline SpectralEnergy operator*(double t, const SpectralEnergy& v) {
-    return SpectralEnergy(t*v.energy[0], t*v.energy[1], t*v.energy[2], t*v.energy[3]);
+    return SpectralEnergy(t*v.energy[0], t*v.energy[1], t*v.energy[2], t*v.energy[3],t*v.energy[4]);
 }
 
 inline SpectralEnergy operator*(const SpectralEnergy& v, double t) {
@@ -126,16 +140,17 @@ inline vec3 spectral_to_rgb(const SpectralEnergy& se, const Wavelengths& wl) {
     double y = 0.0;
     double z = 0.0;
     
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < WL_PER_RAY; i++) {
         int wl_index = int(wl.lambda[i]) - int(WL_MIN);
         
         // Ensure index is within bounds (390 to 830)
         if (wl_index >= 0 && wl_index <= int(WL_MAX - WL_MIN)) {
-            // Uncomment the following lines after pasting the CMF array
             vec3 cmf = CIE2006_CMF_XYZ[wl_index];
             x += cmf.e[0] * se.energy[i];
             y += cmf.e[1] * se.energy[i];
             z += cmf.e[2] * se.energy[i];
+        } else {
+            std::clog << "\rGot an over bonudary line.\n";
         }
     }
     

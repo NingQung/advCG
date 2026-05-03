@@ -51,7 +51,7 @@ class lambertian : public material {
         rgb2spec_fetch(g_rgb2spec_model, rgb, coeffs);
 
         // 4. Evaluate reflectance for each carried wavelength
-        for(int i=0; i<4; i++) {
+        for(int i=0; i<WL_PER_RAY; i++) {
             srec.attenuation.energy[i] = rgb2spec_eval_fast(coeffs, r_in.wavelengths().lambda[i]);
         }
 
@@ -89,7 +89,7 @@ class metal : public material {
         rgb2spec_fetch(g_rgb2spec_model, rgb, coeffs);
 
         // 4. Evaluate reflectance for each carried wavelength
-        for(int i=0; i<4; i++) {
+        for(int i=0; i<WL_PER_RAY; i++) {
             srec.attenuation.energy[i] = rgb2spec_eval_fast(coeffs, r_in.wavelengths().lambda[i]);
         }
         srec.pdf_ptr = nullptr;
