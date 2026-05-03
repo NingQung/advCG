@@ -114,7 +114,6 @@ class dielectric : public material {
 
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
         // Glass absorbs very little energy, so attenuation remains 1.0 for all channels
-        srec.attenuation = SpectralEnergy(1.0); 
         srec.pdf_ptr = nullptr;
         srec.skip_pdf = true;
 
@@ -137,8 +136,26 @@ class dielectric : public material {
 
         if (cannot_refract || reflectance(cos_theta, ri) > random_double()) {
             direction = reflect(unit_direction, rec.normal);
+            srec.attenuation = SpectralEnergy(1.0); 
         } else {
+            double attenuation_temp = 0;
+            for (int i=0; i < WL_PER_RAY; i++) {
+                attenuation_temp += srec.attenuation.energy[i];
+            }
             direction = refract(unit_direction, rec.normal, ri);
+            srec.attenuation = SpectralEnergy(1.0); 
+            // if (attenuation_temp > 0.0){
+            //     srec.attenuation.energy[0] = 10;
+            // } else {
+            //     srec.attenuation.energy[0] = 0.5 * WL_PER_RAY;
+            // }
+            
+            // if (!r_in.is_decoupled) {
+            //     srec.attenuation.energy[0] = 1.0 * WL_PER_RAY;
+            // } else {
+            //     srec.attenuation.energy[0] = 1.0;
+            // }
+            srec.skip_pdf_ray.is_decoupled = true;
         }
 
         // 3. Construct the scattered ray, carrying all original wavelengths along the hero's path

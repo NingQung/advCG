@@ -27,6 +27,8 @@ class ray {
         return orig + t*dir;
     }
 
+    bool is_decoupled = false;
+
   private:
     point3 orig;
     vec3 dir;
