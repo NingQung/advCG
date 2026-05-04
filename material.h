@@ -94,7 +94,8 @@ class metal : public material {
         }
         srec.pdf_ptr = nullptr;
         srec.skip_pdf = true;
-        srec.skip_pdf_ray = ray(rec.p, reflected, r_in.time());
+        srec.skip_pdf_ray = ray(rec.p, reflected, r_in.time(), r_in.wavelengths());
+        srec.skip_pdf_ray.is_decoupled = r_in.is_decoupled;
         return true;
     }
 
@@ -124,7 +125,6 @@ class dielectric : public material {
         // Convert lambda from nanometers to micrometers to fit typical Cauchy coefficients
         double lambda_um = hero_lambda * 0.001;
         double current_ior = A + (B / (lambda_um * lambda_um));
-
         double ri = rec.front_face ? (1.0 / current_ior) : current_ior;
 
         vec3 unit_direction = unit_vector(r_in.direction());
@@ -137,29 +137,22 @@ class dielectric : public material {
         if (cannot_refract || reflectance(cos_theta, ri) > random_double()) {
             direction = reflect(unit_direction, rec.normal);
             srec.attenuation = SpectralEnergy(1.0); 
+
+            srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), r_in.wavelengths());
+            srec.skip_pdf_ray.is_decoupled = r_in.is_decoupled;
         } else {
-            double attenuation_temp = 0;
-            for (int i=0; i < WL_PER_RAY; i++) {
-                attenuation_temp += srec.attenuation.energy[i];
-            }
             direction = refract(unit_direction, rec.normal, ri);
-            srec.attenuation = SpectralEnergy(1.0); 
-            // if (attenuation_temp > 0.0){
-            //     srec.attenuation.energy[0] = 10;
-            // } else {
-            //     srec.attenuation.energy[0] = 0.5 * WL_PER_RAY;
-            // }
+            srec.attenuation = SpectralEnergy(0.0); 
             
-            // if (!r_in.is_decoupled) {
-            //     srec.attenuation.energy[0] = 1.0 * WL_PER_RAY;
-            // } else {
-            //     srec.attenuation.energy[0] = 1.0;
-            // }
+            if (!r_in.is_decoupled) {
+                srec.attenuation.energy[0] = 1.0 * WL_PER_RAY;
+            } else {
+                srec.attenuation.energy[0] = 1.0;
+            }
+            srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), r_in.wavelengths());
             srec.skip_pdf_ray.is_decoupled = true;
         }
 
-        // 3. Construct the scattered ray, carrying all original wavelengths along the hero's path
-        srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), r_in.wavelengths());
         return true;
     }
 
