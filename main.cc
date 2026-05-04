@@ -22,12 +22,12 @@ int main() {
     auto blue = make_shared<lambertian>(color(.05, .05, .65));
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(15, 15, 15));
+    auto light = make_shared<diffuse_light>(color(8, 8, 8));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
-    auto glass = make_shared<dielectric>(1.7, 0.08);
+    auto glass = make_shared<dielectric>(1.7, 0.015);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
     auto checker_mat = make_shared<lambertian>(checker_tex);
-    auto wave_tex = make_shared<wave_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
+    auto wave_tex = make_shared<wave_texture>(25.0,color(.85, .85, .85),color(.10, .10, .10));
     auto wave_mat = make_shared<lambertian>(wave_tex);
 
     // Cornell box sides
@@ -38,7 +38,8 @@ int main() {
     world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
     // Light
-    world.add(make_shared<quad>(point3(213,554,227), vec3(130,0,0), vec3(0,0,105), light));
+    world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
+    //world.add(make_shared<quad>(point3(213,554,227), vec3(130,0,0), vec3(0,0,105), light));
 
     auto empty_material = shared_ptr<material>();
     hittable_list lights;
@@ -46,8 +47,8 @@ int main() {
     //lights.add(make_shared<sphere>(point3(190, 90, 190), 90, empty_material));
 
     // prism
-    shared_ptr<hittable> prism1 = prism(point3(0,0,0), point3(-120,0,120), point3(120,0,120), 400.0, glass);
-    prism1 = make_shared<translate>(prism1, vec3(275,0,175));
+    shared_ptr<hittable> prism1 = prism(point3(0,0,0), point3(-150,0,180), point3(150,0,180), 400.0, glass);
+    prism1 = make_shared<translate>(prism1, vec3(275,5,75));
     world.add(prism1);
 
     // Box 1
@@ -69,7 +70,7 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 5000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
 
