@@ -1,6 +1,7 @@
 #ifndef SPECTRAL_H
 #define SPECTRAL_H
 
+#include <cmath>
 #include "external/rgb2spec.h"
 // Global pointer to the RGB-to-Spectrum model
 extern RGB2Spec *g_rgb2spec_model;
@@ -47,16 +48,40 @@ inline mat3 transpose(const mat3& m) {
     );
 }
 
+
+inline double wavelength_domain_width() {
+    return WL_MAX - WL_MIN;
+}
+
+inline double rotate_wavelength_from_hero(double hero_lambda, int channel) {
+    const double width = wavelength_domain_width();
+    const double shifted = std::fmod(
+        (hero_lambda - WL_MIN) + channel * (width / WL_PER_RAY),
+        width
+    );
+
+    return WL_MIN + (shifted < 0.0 ? shifted + width : shifted);
+}
+
 struct Wavelengths {
     double lambda[WL_PER_RAY];
-    
-    Wavelengths() {}
-    
+    bool hero_only = false;
+
+    Wavelengths() {
+        for (int i = 0; i < WL_PER_RAY; ++i)
+            lambda[i] = WL_MIN;
+    }
+
     static Wavelengths sample() {
         Wavelengths wl;
-        for (int i = 0; i < WL_PER_RAY; i++) {
-            wl.lambda[i] = WL_MIN + random_double() * (WL_MAX - WL_MIN);
+
+        const double safe_u = std::fmin(std::fmax(random_double(), 0.0), 0.999999999999);
+        const double hero_lambda = WL_MIN + safe_u * wavelength_domain_width();
+
+        for (int i = 0; i < WL_PER_RAY; ++i) {
+            wl.lambda[i] = rotate_wavelength_from_hero(hero_lambda, i);
         }
+        wl.hero_only = false;
         return wl;
     }
 };
@@ -78,7 +103,7 @@ struct SpectralEnergy {
     }
 
     SpectralEnergy& operator+=(const SpectralEnergy& v) {
-        for(int i=0; i<WL_PER_RAY; ++i) energy[i] += v.energy[1];
+        for(int i=0; i<WL_PER_RAY; ++i) energy[i] += v.energy[i];
         return *this;
     }
 
@@ -149,6 +174,68 @@ inline vec3 spectral_to_rgb(const SpectralEnergy& se, const Wavelengths& wl) {
     return linear_rgb;
     
     return vec3(0, 0, 0); // Placeholder until arrays are added
+}
+
+inline double clamp01(double x) {
+    return std::fmin(std::fmax(x, 0.0), 1.0);
+}
+
+inline SpectralEnergy rgb_reflectance_to_spectral_energy(const vec3& rgb_color, const Wavelengths& wl) {
+    float rgb[3] = {
+        static_cast<float>(clamp01(rgb_color.x())),
+        static_cast<float>(clamp01(rgb_color.y())),
+        static_cast<float>(clamp01(rgb_color.z()))
+    };
+
+    float coeffs[3];
+    rgb2spec_fetch(g_rgb2spec_model, rgb, coeffs);
+
+    SpectralEnergy result;
+    for (int i = 0; i < WL_PER_RAY; ++i) {
+        result.energy[i] = rgb2spec_eval_fast(coeffs, wl.lambda[i]);
+    }
+
+    return result;
+}
+
+inline SpectralEnergy rgb_emission_to_spectral_energy(const vec3& rgb_color, const Wavelengths& wl) {
+    const double scale = std::fmax(rgb_color.x(), std::fmax(rgb_color.y(), rgb_color.z()));
+
+    if (scale <= 0.0)
+        return SpectralEnergy(0.0);
+
+    vec3 normalized_rgb = rgb_color / scale;
+
+    float rgb[3] = {
+        static_cast<float>(clamp01(normalized_rgb.x())),
+        static_cast<float>(clamp01(normalized_rgb.y())),
+        static_cast<float>(clamp01(normalized_rgb.z()))
+    };
+
+    float coeffs[3];
+    rgb2spec_fetch(g_rgb2spec_model, rgb, coeffs);
+
+    SpectralEnergy result;
+    for (int i = 0; i < WL_PER_RAY; ++i) {
+        result.energy[i] = scale * rgb2spec_eval_fast(coeffs, wl.lambda[i]);
+    }
+
+    return result;
+}
+
+inline Wavelengths collapse_to_hero_only(Wavelengths wl) {
+    wl.hero_only = true;
+    return wl;
+}
+
+inline SpectralEnergy hero_only_attenuation(const Wavelengths& wl) {
+    SpectralEnergy result(0.0);
+
+    // 第一次從 4-channel cluster 退化成 single wavelength 時才補償。
+    // 已經是 hero-only 的路徑再次遇到 dispersive Dirac 時，不再重複乘 4。
+    result.energy[0] = wl.hero_only ? 1.0 : WL_PER_RAY;
+
+    return result;
 }
 
 #endif

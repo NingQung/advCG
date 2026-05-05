@@ -36,27 +36,12 @@ class lambertian : public material {
     lambertian(shared_ptr<texture> tex) : tex(tex) {}
 
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
-        // 1. Get RGB color from texture
         color albedo_rgb = tex->value(rec.u, rec.v, rec.p);
-        float rgb[3] = { (float)albedo_rgb.x(), (float)albedo_rgb.y(), (float)albedo_rgb.z() };
-        
-        // 2. Clamp RGB to [0, 1] for safety
-        for(int i=0; i<3; i++) {
-            if(rgb[i] < 0.0f) rgb[i] = 0.0f;
-            if(rgb[i] > 1.0f) rgb[i] = 1.0f;
-        }
 
-        // 3. Fetch spectral coefficients using rgb2spec
-        float coeffs[3];
-        rgb2spec_fetch(g_rgb2spec_model, rgb, coeffs);
-
-        // 4. Evaluate reflectance for each carried wavelength
-        for(int i=0; i<WL_PER_RAY; i++) {
-            srec.attenuation.energy[i] = rgb2spec_eval_fast(coeffs, r_in.wavelengths().lambda[i]);
-        }
-
+        srec.attenuation = rgb_reflectance_to_spectral_energy(albedo_rgb, r_in.wavelengths());
         srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
         srec.skip_pdf = false;
+
         return true;
     }
 
@@ -76,25 +61,12 @@ class metal : public material {
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
         vec3 reflected = reflect(r_in.direction(), rec.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
-        float rgb[3] = { (float)albedo.x(), (float)albedo.y(), (float)albedo.z() };
-        
-        // 2. Clamp RGB to [0, 1] for safety
-        for(int i=0; i<3; i++) {
-            if(rgb[i] < 0.0f) rgb[i] = 0.0f;
-            if(rgb[i] > 1.0f) rgb[i] = 1.0f;
-        }
 
-        // 3. Fetch spectral coefficients using rgb2spec
-        float coeffs[3];
-        rgb2spec_fetch(g_rgb2spec_model, rgb, coeffs);
-
-        // 4. Evaluate reflectance for each carried wavelength
-        for(int i=0; i<WL_PER_RAY; i++) {
-            srec.attenuation.energy[i] = rgb2spec_eval_fast(coeffs, r_in.wavelengths().lambda[i]);
-        }
+        srec.attenuation = rgb_reflectance_to_spectral_energy(albedo, r_in.wavelengths());
         srec.pdf_ptr = nullptr;
         srec.skip_pdf = true;
-        srec.skip_pdf_ray = ray(rec.p, reflected, r_in.time());
+        srec.skip_pdf_ray = ray(rec.p, reflected, r_in.time(), r_in.wavelengths());
+
         return true;
     }
 
@@ -105,73 +77,135 @@ class metal : public material {
 
 class dielectric : public material {
   public:
-    // We use Cauchy's equation for simple dispersion:
-    // IOR(lambda) = A + B / (lambda^2)
-    // A: base IOR (e.g., 1.5 for glass)
-    // B: dispersion strength (e.g., 0.005 to 0.02)
-    dielectric(double base_ior, double dispersion_strength) 
+    dielectric(double base_ior, double dispersion_strength)
       : A(base_ior), B(dispersion_strength) {}
 
     bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const override {
-        // Glass absorbs very little energy, so attenuation remains 1.0 for all channels
-        srec.attenuation = SpectralEnergy(1.0); 
         srec.pdf_ptr = nullptr;
         srec.skip_pdf = true;
 
-        // 1. Get the Hero Wavelength (assume lambda[0] is our hero)
-        double hero_lambda = r_in.wavelengths().lambda[0];
-        
-        // 2. Calculate dynamic IOR using Cauchy's Equation
-        // Convert lambda from nanometers to micrometers to fit typical Cauchy coefficients
-        double lambda_um = hero_lambda * 0.001;
-        double current_ior = A + (B / (lambda_um * lambda_um));
-
-        double ri = rec.front_face ? (1.0 / current_ior) : current_ior;
+        const Wavelengths& wl = r_in.wavelengths();
+        const double hero_lambda = wl.lambda[0];
 
         vec3 unit_direction = unit_vector(r_in.direction());
         double cos_theta = std::fmin(dot(-unit_direction, rec.normal), 1.0);
-        double sin_theta = std::sqrt(1.0 - cos_theta*cos_theta);
+        double sin_theta = std::sqrt(1.0 - cos_theta * cos_theta);
 
-        bool cannot_refract = ri * sin_theta > 1.0;
-        vec3 direction;
+        double hero_ior = ior_at(hero_lambda);
+        double hero_eta = rec.front_face ? (1.0 / hero_ior) : hero_ior;
 
-        if (cannot_refract || reflectance(cos_theta, ri) > random_double()) {
-            direction = reflect(unit_direction, rec.normal);
-        } else {
-            direction = refract(unit_direction, rec.normal, ri);
+        bool hero_cannot_refract = hero_eta * sin_theta > 1.0;
+        double hero_reflect_pdf = hero_cannot_refract
+                                ? 1.0
+                                : reflectance(cos_theta, hero_eta);
+
+        bool choose_reflect = hero_cannot_refract || hero_reflect_pdf > random_double();
+
+        if (choose_reflect) {
+            vec3 direction = reflect(unit_direction, rec.normal);
+
+            // Reflection direction is aligned for all wavelengths.
+            // Use spectral MIS over wavelength-dependent Fresnel probabilities.
+            double pdfs[WL_PER_RAY];
+            double sum_pdf = 0.0;
+
+            for (int i = 0; i < WL_PER_RAY; ++i) {
+                double ior = ior_at(wl.lambda[i]);
+                double eta = rec.front_face ? (1.0 / ior) : ior;
+
+                bool cannot_refract = eta * sin_theta > 1.0;
+                pdfs[i] = cannot_refract ? 1.0 : reflectance(cos_theta, eta);
+
+                sum_pdf += pdfs[i];
+            }
+
+            for (int i = 0; i < WL_PER_RAY; ++i) {
+                srec.attenuation.energy[i] =
+                    (sum_pdf > 0.0) ? (WL_PER_RAY * pdfs[i] / sum_pdf) : 0.0;
+            }
+
+            srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), wl);
+            return true;
         }
 
-        // 3. Construct the scattered ray, carrying all original wavelengths along the hero's path
-        srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), r_in.wavelengths());
+        // Refraction is wavelength-dependent when B != 0.
+        // The hero wavelength chooses the physical refracted direction.
+        vec3 direction = refract(unit_direction, rec.normal, hero_eta);
+        srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), wl);
+
+        if (std::fabs(B) > 1e-12) {
+            Wavelengths next_wl = collapse_to_hero_only(wl);
+
+            srec.attenuation = hero_only_attenuation(wl);
+            srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), next_wl);
+
+            return true;
+        }
+
+        // Non-dispersive refraction:
+        // direction is aligned, so all channels may be retained.
+        double pdfs[WL_PER_RAY];
+        double sum_pdf = 0.0;
+
+        for (int i = 0; i < WL_PER_RAY; ++i) {
+            double ior = ior_at(wl.lambda[i]);
+            double eta = rec.front_face ? (1.0 / ior) : ior;
+
+            bool cannot_refract = eta * sin_theta > 1.0;
+            pdfs[i] = cannot_refract ? 0.0 : (1.0 - reflectance(cos_theta, eta));
+
+            sum_pdf += pdfs[i];
+        }
+
+        for (int i = 0; i < WL_PER_RAY; ++i) {
+            srec.attenuation.energy[i] =
+                (sum_pdf > 0.0) ? (WL_PER_RAY * pdfs[i] / sum_pdf) : 0.0;
+        }
+
         return true;
     }
 
   private:
-    double A; // Base index of refraction
-    double B; // Dispersion coefficient
+    double A;
+    double B;
 
-    static double reflectance(double cosine, double refraction_index) {
-        // Use Schlick's approximation for reflectance.
-        auto r0 = (1 - refraction_index) / (1 + refraction_index);
-        r0 = r0*r0;
-        return r0 + (1-r0)*std::pow((1 - cosine),5);
+    double ior_at(double lambda_nm) const {
+        double lambda_um = lambda_nm * 0.001;
+        return A + (B / (lambda_um * lambda_um));
+    }
+
+    static double reflectance(double cosine, double refraction_ratio) {
+        auto r0 = (1 - refraction_ratio) / (1 + refraction_ratio);
+        r0 = r0 * r0;
+        return r0 + (1 - r0) * std::pow((1 - cosine), 5);
     }
 };
 
 class diffuse_light : public material {
   public:
-    diffuse_light(const SpectralEnergy& emit) : emit_color(emit) {}
-    diffuse_light(const color& emit) : emit_color(emit.x()) {}
-    diffuse_light(const double& emit) : emit_color(emit) {}
-    
+    diffuse_light(const SpectralEnergy& emit)
+      : emit_color(emit), emit_rgb(0,0,0), use_rgb(false) {}
+
+    diffuse_light(const color& emit)
+      : emit_color(0.0), emit_rgb(emit), use_rgb(true) {}
+
+    diffuse_light(const double& emit)
+      : emit_color(emit), emit_rgb(0,0,0), use_rgb(false) {}
+
     SpectralEnergy emitted(const ray& r_in, const hit_record& rec, double u, double v, const point3& p) const override {
         if (!rec.front_face)
             return SpectralEnergy(0.0);
+
+        if (use_rgb)
+            return rgb_emission_to_spectral_energy(emit_rgb, r_in.wavelengths());
+
         return emit_color;
     }
 
   private:
     SpectralEnergy emit_color;
+    color emit_rgb;
+    bool use_rgb;
 };
 
 // class isotropic : public material {

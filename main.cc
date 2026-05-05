@@ -22,7 +22,7 @@ int main() {
     auto blue = make_shared<lambertian>(color(.05, .05, .65));
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(8, 8, 8));
+    auto light = make_shared<diffuse_light>(color(8.0, 8.0, 8.0));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
     auto glass = make_shared<dielectric>(1.7, 0.015);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
