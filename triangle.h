@@ -80,7 +80,7 @@ class triangle : public hittable {
         return true;
     }
 
-    double pdf_value(const point3& origin, const vec3& direction) const override {
+    double pdf_value(const point3& origin, const vec3& direction, double lambda) const override {
         hit_record rec;
         if (!this->hit(ray(origin, direction), interval(0.001, infinity), rec))
             return 0;
@@ -91,7 +91,7 @@ class triangle : public hittable {
         return distance_squared / (cosine * area);
     }
 
-    vec3 random(const point3& origin) const override {
+    vec3 random(const point3& origin, double lambda) const override {
         auto r1 = random_double();
         auto r2 = random_double();
         

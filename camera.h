@@ -166,10 +166,22 @@ class camera {
         auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
         mixture_pdf p(light_ptr, srec.pdf_ptr);
 
-        ray scattered = ray(rec.p, p.generate(), r.time(), r.wavelengths());
-        auto pdf_value = p.value(scattered.direction());
+        ray scattered = ray(rec.p, p.generate(r.wavelengths()), r.time(), r.wavelengths());
+        auto pdf_value = p.value_joint(scattered.direction(), r.wavelengths());
 
-        double scattering_pdf = rec.mat->scattering_pdf(r, rec, scattered);
+        if (pdf_value <= 0.0)
+            return color_from_emission;
+
+        SpectralEnergy scattering_pdf;
+        for (int k = 0; k < WL_PER_RAY; ++k) {
+            if (r.wavelengths().hero_only && k != 0) {
+                scattering_pdf.energy[k] = 0.0;
+                continue;
+            }
+
+            scattering_pdf.energy[k] =
+                rec.mat->scattering_pdf(r, rec, scattered, r.wavelengths().lambda[k]);
+        }
 
         SpectralEnergy sample_color = ray_color(scattered, depth-1, world, lights);
         SpectralEnergy color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value;

@@ -231,8 +231,6 @@ inline Wavelengths collapse_to_hero_only(Wavelengths wl) {
 inline SpectralEnergy hero_only_attenuation(const Wavelengths& wl) {
     SpectralEnergy result(0.0);
 
-    // 第一次從 4-channel cluster 退化成 single wavelength 時才補償。
-    // 已經是 hero-only 的路徑再次遇到 dispersive Dirac 時，不再重複乘 4。
     result.energy[0] = wl.hero_only ? 1.0 : WL_PER_RAY;
 
     return result;

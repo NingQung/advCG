@@ -38,19 +38,19 @@ class hittable_list : public hittable {
     
     aabb bounding_box() const override { return bbox; }
 
-    double pdf_value(const point3& origin, const vec3& direction) const override {
+    double pdf_value(const point3& origin, const vec3& direction, double lambda) const override {
         auto weight = 1.0 / objects.size();
         auto sum = 0.0;
 
         for (const auto& object : objects)
-            sum += weight * object->pdf_value(origin, direction);
+            sum += weight * object->pdf_value(origin, direction, lambda);
 
         return sum;
     }
 
-    vec3 random(const point3& origin) const override {
+    vec3 random(const point3& origin, double lambda) const override {
         auto int_size = int(objects.size());
-        return objects[random_int(0, int_size-1)]->random(origin);
+        return objects[random_int(0, int_size-1)]->random(origin, lambda);
     }
 
   private:

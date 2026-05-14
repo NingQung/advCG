@@ -32,11 +32,11 @@ class hittable {
 
     virtual aabb bounding_box() const = 0;
 
-    virtual double pdf_value(const point3& origin, const vec3& direction) const {
+    virtual double pdf_value(const point3& origin, const vec3& direction, double lambda) const {
         return 0.0;
     }
 
-    virtual vec3 random(const point3& origin) const {
+    virtual vec3 random(const point3& origin, double lambda) const {
         return vec3(1,0,0);
     }
 };
