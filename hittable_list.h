@@ -53,6 +53,59 @@ class hittable_list : public hittable {
         return objects[random_int(0, int_size-1)]->random(origin, lambda);
     }
 
+    double spectral_pdf_weight(double lambda) const override {
+        double sum = 0.0;
+
+        for (const auto& object : objects)
+            sum += object->spectral_pdf_weight(lambda);
+
+        return sum;
+    }
+
+    double spectral_pdf_value(const point3& origin, const vec3& direction, double lambda) const override {
+        double total_weight = spectral_pdf_weight(lambda);
+
+        if (total_weight <= 0.0)
+            return pdf_value(origin, direction, lambda);
+
+        double sum = 0.0;
+
+        for (const auto& object : objects) {
+            double w = object->spectral_pdf_weight(lambda);
+
+            if (w <= 0.0)
+                continue;
+
+            sum += (w / total_weight) * object->spectral_pdf_value(origin, direction, lambda);
+        }
+
+        return sum;
+    }
+
+    vec3 spectral_random(const point3& origin, double lambda) const override {
+        double total_weight = spectral_pdf_weight(lambda);
+
+        if (total_weight <= 0.0)
+            return random(origin, lambda);
+
+        double target = random_double() * total_weight;
+        double accum = 0.0;
+
+        for (const auto& object : objects) {
+            double w = object->spectral_pdf_weight(lambda);
+
+            if (w <= 0.0)
+                continue;
+
+            accum += w;
+
+            if (target <= accum)
+                return object->spectral_random(origin, lambda);
+        }
+
+        return objects.back()->spectral_random(origin, lambda);
+    }
+
   private:
     aabb bbox;
 };

@@ -87,6 +87,21 @@ class quad : public hittable {
         return p - origin;
     }
 
+    double spectral_pdf_weight(double lambda) const override {
+        if (!mat)
+            return 0.0;
+
+        return area * mat->emission_pdf_weight(lambda);
+    }
+
+    double spectral_pdf_value(const point3& origin, const vec3& direction, double lambda) const override {
+        return pdf_value(origin, direction, lambda);
+    }
+
+    vec3 spectral_random(const point3& origin, double lambda) const override {
+        return random(origin, lambda);
+    }
+
   private:
     point3 Q;
     vec3 u, v;

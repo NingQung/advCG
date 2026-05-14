@@ -163,7 +163,7 @@ class camera {
             return srec.attenuation * ray_color(srec.skip_pdf_ray, depth-1, world, lights);
         }
 
-        auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
+        auto light_ptr = make_shared<spectral_light_pdf>(lights, rec.p);
         mixture_pdf p(light_ptr, srec.pdf_ptr);
 
         ray scattered = ray(rec.p, p.generate(r.wavelengths()), r.time(), r.wavelengths());

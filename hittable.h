@@ -39,6 +39,18 @@ class hittable {
     virtual vec3 random(const point3& origin, double lambda) const {
         return vec3(1,0,0);
     }
+
+    virtual double spectral_pdf_weight(double lambda) const {
+    return 0.0;
+    }
+
+    virtual double spectral_pdf_value(const point3& origin, const vec3& direction, double lambda) const {
+        return pdf_value(origin, direction, lambda);
+    }
+
+    virtual vec3 spectral_random(const point3& origin, double lambda) const {
+        return random(origin, lambda);
+    }
 };
 
 class translate : public hittable {
@@ -62,6 +74,16 @@ class translate : public hittable {
         return true;
     }
     aabb bounding_box() const override { return bbox; }
+
+    double spectral_pdf_weight(double lambda) const override {
+        return object->spectral_pdf_weight(lambda);
+    }
+    double spectral_pdf_value(const point3& origin, const vec3& direction, double lambda) const override {
+        return object->spectral_pdf_value(origin - offset, direction, lambda);
+    }
+    vec3 spectral_random(const point3& origin, double lambda) const override {
+        return object->spectral_random(origin - offset, lambda);
+    }
 
   private:
     shared_ptr<hittable> object;

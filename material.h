@@ -28,6 +28,10 @@ class material {
     virtual bool scatter(const ray& r_in, const hit_record& rec, scatter_record& srec) const {
         return false;
     }
+
+    virtual double emission_pdf_weight(double lambda) const {
+        return 0.0;
+    }
 };
 
 class lambertian : public material {
@@ -200,6 +204,24 @@ class diffuse_light : public material {
             return rgb_emission_to_spectral_energy(emit_rgb, r_in.wavelengths());
 
         return emit_color;
+    }
+    double emission_pdf_weight(double lambda) const override {
+        if (use_rgb) {
+            Wavelengths wl;
+            for (int i = 0; i < WL_PER_RAY; ++i)
+                wl.lambda[i] = lambda;
+
+            wl.hero_only = false;
+
+            SpectralEnergy e = rgb_emission_to_spectral_energy(emit_rgb, wl);
+            return std::fmax(0.0, e.energy[0]);
+        }
+
+        double sum = 0.0;
+        for (int i = 0; i < WL_PER_RAY; ++i)
+            sum += std::fmax(0.0, emit_color.energy[i]);
+
+        return sum / WL_PER_RAY;
     }
 
   private:

@@ -61,6 +61,25 @@ class hittable_pdf : public pdf {
     point3 origin;
 };
 
+class spectral_light_pdf : public pdf {
+  public:
+    spectral_light_pdf(const hittable& objects, const point3& origin)
+      : objects(objects), origin(origin)
+    {}
+
+    double value(const vec3& direction, double lambda) const override {
+        return objects.spectral_pdf_value(origin, direction, lambda);
+    }
+
+    vec3 generate(double lambda) const override {
+        return objects.spectral_random(origin, lambda);
+    }
+
+  private:
+    const hittable& objects;
+    point3 origin;
+};
+
 class mixture_pdf : public pdf {
   public:
     mixture_pdf(shared_ptr<pdf> p0, shared_ptr<pdf> p1) {
