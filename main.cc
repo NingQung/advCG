@@ -1,3 +1,5 @@
+#include <chrono>
+#include <iomanip>
 #include "rtweekend.h"
 
 #include "camera.h"
@@ -24,7 +26,7 @@ int main() {
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     auto light = make_shared<diffuse_light>(color(8.0, 8.0, 8.0));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
-    auto glass = make_shared<dielectric>(1.7, 0.000);
+    auto glass = make_shared<dielectric>(1.7, 0.015);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
     auto checker_mat = make_shared<lambertian>(checker_tex);
     auto wave_tex = make_shared<wave_texture>(25.0,color(.85, .85, .85),color(.10, .10, .10));
@@ -81,7 +83,18 @@ int main() {
 
     cam.defocus_angle = 0;
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     cam.render(world, lights);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> elapsed = end - start;
+
+    std::clog << "\nRender time: "
+              << std::fixed << std::setprecision(3)
+              << elapsed.count()
+              << " seconds\n";
 
     rgb2spec_free(g_rgb2spec_model);
     return 0;
