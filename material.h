@@ -108,6 +108,11 @@ class dielectric : public material {
         if (choose_reflect) {
             vec3 direction = reflect(unit_direction, rec.normal);
 
+            if (wl.hero_only) {
+                srec.attenuation = hero_only_masked_energy(1.0);
+                srec.skip_pdf_ray = ray(rec.p, direction, r_in.time(), wl);
+                return true;
+            }
             // Reflection direction is aligned for all wavelengths.
             // Use spectral MIS over wavelength-dependent Fresnel probabilities.
             double pdfs[WL_PER_RAY];
