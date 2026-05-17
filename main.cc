@@ -25,7 +25,7 @@ int main() {
     auto blue = make_shared<lambertian>(color(.05, .05, .65));
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(40.0, 40.0, 40.0));
+    auto light = make_shared<diffuse_light>(color(60.0, 60.0, 60.0));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
     auto glass = make_shared<dielectric>(1.7, 0.015);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
@@ -95,11 +95,11 @@ int main() {
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
-      world.add(make_shared<quad>(point3(0,300,270), vec3(555,0,0), vec3(0,0,-275), white)); //front-blocker
-      world.add(make_shared<quad>(point3(0,300,556), vec3(555,0,0), vec3(0,0,-280), white)); //back-blocker
+      world.add(make_shared<quad>(point3(0,278,270), vec3(555,0,0), vec3(0,0,-275), white)); //front-blocker
+      world.add(make_shared<quad>(point3(0,278,560), vec3(555,0,0), vec3(0,0,-283), white)); //back-blocker
 
-      world.add(make_shared<quad>(point3(0,554,280), vec3(0,0,-30), vec3(555,0,0), light));
-      lights.add(make_shared<quad>(point3(0,554,280), vec3(0,0,-30), vec3(555,0,0), light));
+      world.add(make_shared<quad>(point3(0,554,280), vec3(0,0,-15), vec3(555,0,0), light));
+      lights.add(make_shared<quad>(point3(0,554,280), vec3(0,0,-15), vec3(555,0,0), light));
 
       shared_ptr<hittable> prism1 = prism(point3(0,0,0), point3(0,65,100), point3(0,-65,100), 400.0, glass2);
       prism1 = make_shared<rotate_x>(prism1, -60);
@@ -118,7 +118,7 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 100;
+    cam.samples_per_pixel = 5000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
 
