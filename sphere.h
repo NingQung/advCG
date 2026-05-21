@@ -58,7 +58,7 @@ class sphere : public hittable {
     
     aabb bounding_box() const override { return bbox; }
 
-    double pdf_value(const point3& origin, const vec3& direction) const override {
+    double pdf_value(const point3& origin, const vec3& direction, double lambda) const override {
         // This method only works for stationary spheres.
 
         hit_record rec;
@@ -72,7 +72,7 @@ class sphere : public hittable {
         return  1 / solid_angle;
     }
 
-    vec3 random(const point3& origin) const override {
+    vec3 random(const point3& origin, double lambda) const override {
         vec3 direction = center.at(0) - origin;
         auto distance_squared = direction.length_squared();
         onb uvw(direction);
