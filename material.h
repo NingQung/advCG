@@ -32,6 +32,18 @@ class material {
     virtual double emission_pdf_weight(double lambda) const {
         return 0.0;
     }
+
+    virtual bool supports_photon_gather() const {
+        return false;
+    }
+
+    virtual SpectralEnergy photon_gather_brdf(
+        const ray& r_in,
+        const hit_record& rec,
+        const Wavelengths& wavelengths
+    ) const {
+        return SpectralEnergy(0.0);
+    }
 };
 
 class lambertian : public material {
@@ -52,6 +64,19 @@ class lambertian : public material {
     double scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered, double lambda) const override {
         auto cos_theta = dot(rec.normal, unit_vector(scattered.direction()));
         return cos_theta < 0 ? 0 : cos_theta/pi;
+    }
+
+    bool supports_photon_gather() const override {
+        return true;
+    }
+
+    SpectralEnergy photon_gather_brdf(
+        const ray& r_in,
+        const hit_record& rec,
+        const Wavelengths& wavelengths
+    ) const override {
+        color albedo_rgb = tex->value(rec.u, rec.v, rec.p);
+        return rgb_reflectance_to_spectral_energy(albedo_rgb, wavelengths) / pi;
     }
 
   private:

@@ -4,6 +4,7 @@
 #include "hittable.h"
 #include "pdf.h"
 #include "material.h"
+#include "photon_map.h"
 
 class camera {
   public:
@@ -21,25 +22,34 @@ class camera {
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
-    void render(const hittable& world, const hittable& lights)  {
+    void render(const hittable& world, const hittable& lights) {
+        photon_map empty_caustic_map;
+        render(world, lights, empty_caustic_map);
+    }
+
+    void render(const hittable& world, const hittable& lights, const photon_map& caustic_map) {
         initialize();
 
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
         for (int j = 0; j < image_height; j++) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+
             for (int i = 0; i < image_width; i++) {
                 color pixel_color(0,0,0);
+
                 for (int s_j = 0; s_j < sqrt_spp; s_j++) {
                     for (int s_i = 0; s_i < sqrt_spp; s_i++) {
                         ray r = get_ray(i, j, s_i, s_j);
-                        SpectralEnergy sample_energy = ray_color(r, max_depth, world, lights);
-                        
-                        // Immediately convert this sample's spectral energy to RGB
+
+                        SpectralEnergy sample_energy =
+                            ray_color(r, max_depth, world, lights, caustic_map);
+
                         vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
                         pixel_color += sample_rgb;
                     }
                 }
+
                 write_color(std::cout, pixel_samples_scale * pixel_color);
             }
         }
@@ -141,15 +151,12 @@ class camera {
     }
 
 
-    SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights) const {
-        
-        // If we've exceeded the ray bounce limit, no more light is gathered.
+    SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights, const photon_map& caustic_map) const {
         if (depth <= 0)
             return SpectralEnergy(0.0);
 
         hit_record rec;
 
-        // If the ray hits nothing, return the background color.
         if (!world.hit(r, interval(0.001, infinity), rec))
             return SpectralEnergy(0.0);
 
@@ -158,10 +165,13 @@ class camera {
 
         if (!rec.mat->scatter(r, rec, srec))
             return color_from_emission;
-        
+
         if (srec.skip_pdf) {
-            return srec.attenuation * ray_color(srec.skip_pdf_ray, depth-1, world, lights);
+            return srec.attenuation *
+                ray_color(srec.skip_pdf_ray, depth - 1, world, lights, caustic_map);
         }
+
+        SpectralEnergy color_from_caustic = caustic_map.estimate_caustic(rec, r);
 
         auto light_ptr = make_shared<spectral_light_pdf>(lights, rec.p);
         mixture_pdf p(light_ptr, srec.pdf_ptr);
@@ -170,9 +180,10 @@ class camera {
         auto pdf_value = p.value_joint(scattered.direction(), r.wavelengths());
 
         if (pdf_value <= 0.0)
-            return color_from_emission;
+            return color_from_emission + color_from_caustic;
 
         SpectralEnergy scattering_pdf;
+
         for (int k = 0; k < WL_PER_RAY; ++k) {
             if (r.wavelengths().hero_only && k != 0) {
                 scattering_pdf.energy[k] = 0.0;
@@ -183,10 +194,13 @@ class camera {
                 rec.mat->scattering_pdf(r, rec, scattered, r.wavelengths().lambda[k]);
         }
 
-        SpectralEnergy sample_color = ray_color(scattered, depth-1, world, lights);
-        SpectralEnergy color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
+        SpectralEnergy sample_color =
+            ray_color(scattered, depth - 1, world, lights, caustic_map);
 
-        return color_from_emission + color_from_scatter;
+        SpectralEnergy color_from_scatter =
+            (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
+
+        return color_from_emission + color_from_caustic + color_from_scatter;
     }
 };
 

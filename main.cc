@@ -8,6 +8,7 @@
 #include "quad.h"
 #include "sphere.h"
 #include "triangle.h"
+#include "photon_map.h"
 #include "external/rgb2spec.h"
 RGB2Spec *g_rgb2spec_model = nullptr;
 
@@ -25,7 +26,6 @@ int main() {
     auto blue = make_shared<lambertian>(color(.05, .05, .65));
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(60.0, 60.0, 60.0));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
     auto glass = make_shared<dielectric>(1.7, 0.015);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
@@ -35,9 +35,10 @@ int main() {
 
     hittable_list lights;
     camera cam;
+    light_emitter_list emitters;
 
-    switch (3) {
-    case 1: {
+    switch (1) {
+    case 1: { // Cornell box + glass ball
       // Cornell box sides
       world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
       world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
@@ -46,9 +47,10 @@ int main() {
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
       // Light
+      auto light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
       world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
       lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
-
+      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(60.0, 60.0, 60.0));
       // Box 1
       shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
       box1 = make_shared<rotate_y>(box1, 15);
@@ -64,7 +66,7 @@ int main() {
       cam.vup      = vec3(0, 1, 0);
       break;
     }
-    case 2: {
+    case 2: { // Cornell box + glass prism to look back dispersion
       // Cornell box sides
       world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
       world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
@@ -73,8 +75,10 @@ int main() {
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
       // Light
+      auto light = make_shared<diffuse_light>(color(60.0, 60.0, 60.0));
       world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
       lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
+      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(60.0, 60.0, 60.0));
 
       // prism
       shared_ptr<hittable> prism1 = prism(point3(0,0,0), point3(-150,0,180), point3(150,0,180), 400.0, glass);
@@ -88,7 +92,7 @@ int main() {
       cam.vup      = vec3(0, 1, 0);
       break;
     }
-    case 3: {
+    case 3: { // dispersion prism to ground
       auto glass2 = make_shared<dielectric>(1.5, 0.015);
       world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
       world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
@@ -98,8 +102,10 @@ int main() {
       world.add(make_shared<quad>(point3(0,278,270), vec3(555,0,0), vec3(0,0,-275), white)); //front-blocker
       world.add(make_shared<quad>(point3(0,278,560), vec3(555,0,0), vec3(0,0,-283), white)); //back-blocker
 
+      auto light = make_shared<diffuse_light>(color(60.0, 60.0, 60.0));
       world.add(make_shared<quad>(point3(0,554,280), vec3(0,0,-15), vec3(555,0,0), light));
       lights.add(make_shared<quad>(point3(0,554,280), vec3(0,0,-15), vec3(555,0,0), light));
+      emitters.add_quad(point3(0,554,280), vec3(0,0,-15), vec3(555,0,0), color(60.0, 60.0, 60.0));
 
       shared_ptr<hittable> prism1 = prism(point3(0,0,0), point3(0,65,100), point3(0,-65,100), 400.0, glass2);
       prism1 = make_shared<rotate_x>(prism1, -60);
@@ -118,15 +124,23 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 5000;
+    cam.samples_per_pixel = 10000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
-
     cam.defocus_angle = 0;
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    cam.render(world, lights);
+    photon_map caustic_map;
+    caustic_map.photon_count = 50000;
+    caustic_map.max_depth = 20;
+    caustic_map.gather_radius = 16.0;
+    caustic_map.spectral_radius_nm = 25.0;
+    caustic_map.caustic_strength = 1.0;
+
+    build_caustic_photon_map(world, emitters, caustic_map);
+
+    cam.render(world, lights, caustic_map);
 
     auto end = std::chrono::high_resolution_clock::now();
 
