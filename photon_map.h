@@ -149,20 +149,23 @@ class photon_map {
 
         for (const auto& photon : photons) {
             vec3 delta = photon.position - rec.p;
+            double dist2 = delta.length_squared();
 
-            if (delta.length_squared() > radius2)
+            if (dist2 > radius2)
                 continue;
 
-            // Avoid mixing photons from the opposite side of thin surfaces.
             if (dot(photon.normal, rec.normal) <= 0.1)
+                continue;
+
+            double dist = std::sqrt(dist2);
+            double spatial_weight = 1.0 - dist / gather_radius;
+
+            if (spatial_weight <= 0.0)
                 continue;
 
             for (int q = 0; q < WL_PER_RAY; ++q) {
                 if (query_wl.hero_only && q != 0)
                     continue;
-
-                double accum_weight = 0.0;
-                double accum_power = 0.0;
 
                 for (int p = 0; p < WL_PER_RAY; ++p) {
                     if (photon.wavelengths.hero_only && p != 0)
@@ -176,22 +179,20 @@ class photon_map {
                     if (distance_nm >= spectral_radius_nm)
                         continue;
 
-                    // Triangular spectral kernel.
-                    double weight = 1.0 - distance_nm / spectral_radius_nm;
+                    double spectral_weight = 1.0 - distance_nm / spectral_radius_nm;
+                    double weight = spatial_weight * spectral_weight;
 
-                    accum_weight += weight;
-                    accum_power += weight * photon.power.energy[p];
+                    flux.energy[q] += weight * photon.power.energy[p];
                 }
-
-                if (accum_weight > 0.0)
-                    flux.energy[q] += accum_power / accum_weight;
             }
         }
 
         SpectralEnergy brdf = rec.mat->photon_gather_brdf(r_in, rec, query_wl);
-        const double area = pi * gather_radius * gather_radius;
 
-        return caustic_strength * (brdf * (flux / area));
+        // Integral of kernel w(r)=1-r/R over a disk is πR²/3.
+        const double kernel_area = pi * gather_radius * gather_radius / 3.0;
+
+        return caustic_strength * (brdf * (flux / kernel_area));
     }
 
   private:

@@ -124,7 +124,7 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 10000;
+    cam.samples_per_pixel = 1000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
@@ -132,11 +132,11 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     photon_map caustic_map;
-    caustic_map.photon_count = 50000;
+    caustic_map.photon_count = 500000;
     caustic_map.max_depth = 20;
-    caustic_map.gather_radius = 16.0;
-    caustic_map.spectral_radius_nm = 25.0;
-    caustic_map.caustic_strength = 1.0;
+    caustic_map.gather_radius = 6.0;
+    caustic_map.spectral_radius_nm = 40.0;
+    caustic_map.caustic_strength = 2.0;
 
     build_caustic_photon_map(world, emitters, caustic_map);
 

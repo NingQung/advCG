@@ -151,7 +151,7 @@ class camera {
     }
 
 
-    SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights, const photon_map& caustic_map) const {
+    SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights, const photon_map& caustic_map, bool allow_caustic_gather = true) const {
         if (depth <= 0)
             return SpectralEnergy(0.0);
 
@@ -167,11 +167,11 @@ class camera {
             return color_from_emission;
 
         if (srec.skip_pdf) {
-            return srec.attenuation *
-                ray_color(srec.skip_pdf_ray, depth - 1, world, lights, caustic_map);
+            return srec.attenuation * ray_color(srec.skip_pdf_ray, depth - 1, world, lights, caustic_map, allow_caustic_gather);
         }
 
-        SpectralEnergy color_from_caustic = caustic_map.estimate_caustic(rec, r);
+        SpectralEnergy color_from_caustic = allow_caustic_gather ? 
+          caustic_map.estimate_caustic(rec, r) : SpectralEnergy(0.0);
 
         auto light_ptr = make_shared<spectral_light_pdf>(lights, rec.p);
         mixture_pdf p(light_ptr, srec.pdf_ptr);
