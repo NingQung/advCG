@@ -123,8 +123,8 @@ int main() {
     }
 
     cam.aspect_ratio      = 1.0;
-    cam.image_width       = 300;
-    cam.samples_per_pixel = 100;
+    cam.image_width       = 600;
+    cam.samples_per_pixel = 1000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
@@ -135,8 +135,10 @@ int main() {
     caustic_map.photon_count = 500000;
     caustic_map.max_depth = 20;
     caustic_map.gather_radius = 6.0;
+    caustic_map.grid_cell_size = caustic_map.gather_radius;
     caustic_map.spectral_radius_nm = 40.0;
     caustic_map.caustic_strength = 2.0;
+    caustic_map.use_spatial_grid = true;
 
     build_caustic_photon_map(world, emitters, caustic_map);
     caustic_map.write_ply("caustic_photons.ply", 50000.0);

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "rtweekend.h"
@@ -19,6 +20,27 @@ struct spectral_photon {
     vec3 incident_direction;
     SpectralEnergy power;
     Wavelengths wavelengths;
+};
+
+struct photon_grid_key {
+    int x;
+    int y;
+    int z;
+
+    bool operator==(const photon_grid_key& other) const {
+        return x == other.x && y == other.y && z == other.z;
+    }
+};
+
+struct photon_grid_key_hash {
+    std::size_t operator()(const photon_grid_key& key) const {
+        // Hash three signed integers. The constants are common large primes.
+        std::size_t h1 = std::hash<int>{}(key.x);
+        std::size_t h2 = std::hash<int>{}(key.y);
+        std::size_t h3 = std::hash<int>{}(key.z);
+
+        return h1 ^ (h2 * 73856093u) ^ (h3 * 19349663u);
+    }
 };
 
 inline bool has_positive_spectral_power(const SpectralEnergy& power) {
@@ -101,6 +123,10 @@ class photon_map {
     // Cornell box size is roughly 555, so 8~20 is a reasonable first test range.
     double gather_radius = 12.0;
 
+    // If <= 0, build_grid() uses gather_radius as the cell size.
+    // Usually cell_size = gather_radius is a good first choice.
+    double grid_cell_size = 0.0;
+
     // Since photons and camera rays sample different wavelengths, this acts as a
     // simple spectral reconstruction radius in nanometers.
     double spectral_radius_nm = 25.0;
@@ -109,8 +135,14 @@ class photon_map {
     // in a first implementation.
     double caustic_strength = 1.0;
 
+    // Turn this off to compare against brute-force search.
+    bool use_spatial_grid = true;
+
     void clear() {
         photons.clear();
+        grid.clear();
+        grid_built = false;
+        effective_cell_size = 0.0;
     }
 
     void reserve(int count) {
@@ -131,10 +163,40 @@ class photon_map {
             power,
             wavelengths
         });
+
+        grid_built = false;
     }
 
     int size() const {
         return int(photons.size());
+    }
+
+    void build_grid() {
+        grid.clear();
+
+        if (photons.empty()) {
+            grid_built = true;
+            return;
+        }
+
+        effective_cell_size = (grid_cell_size > 0.0) ? grid_cell_size : gather_radius;
+
+        if (effective_cell_size <= 0.0) {
+            grid_built = false;
+            return;
+        }
+
+        for (int i = 0; i < int(photons.size()); ++i) {
+            photon_grid_key key = point_to_key(photons[i].position);
+            grid[key].push_back(i);
+        }
+
+        grid_built = true;
+
+        std::clog << "Built photon grid: "
+                  << photons.size() << " photons, "
+                  << grid.size() << " occupied cells, "
+                  << "cell size = " << effective_cell_size << "\n";
     }
 
     SpectralEnergy estimate_caustic(const hit_record& rec, const ray& r_in) const {
@@ -144,52 +206,15 @@ class photon_map {
         if (!rec.mat->supports_photon_gather())
             return SpectralEnergy(0.0);
 
-        const Wavelengths& query_wl = r_in.wavelengths();
-
         SpectralEnergy flux(0.0);
-        const double radius2 = gather_radius * gather_radius;
 
-        for (const auto& photon : photons) {
-            vec3 delta = photon.position - rec.p;
-            double dist2 = delta.length_squared();
-
-            if (dist2 > radius2)
-                continue;
-
-            if (dot(photon.normal, rec.normal) <= 0.1)
-                continue;
-
-            double dist = std::sqrt(dist2);
-            double spatial_weight = 1.0 - dist / gather_radius;
-
-            if (spatial_weight <= 0.0)
-                continue;
-
-            for (int q = 0; q < WL_PER_RAY; ++q) {
-                if (query_wl.hero_only && q != 0)
-                    continue;
-
-                for (int p = 0; p < WL_PER_RAY; ++p) {
-                    if (photon.wavelengths.hero_only && p != 0)
-                        continue;
-
-                    if (photon.power.energy[p] <= 0.0)
-                        continue;
-
-                    double distance_nm = std::fabs(query_wl.lambda[q] - photon.wavelengths.lambda[p]);
-
-                    if (distance_nm >= spectral_radius_nm)
-                        continue;
-
-                    double spectral_weight = 1.0 - distance_nm / spectral_radius_nm;
-                    double weight = spatial_weight * spectral_weight;
-
-                    flux.energy[q] += weight * photon.power.energy[p];
-                }
-            }
+        if (use_spatial_grid && grid_built && effective_cell_size > 0.0) {
+            estimate_caustic_grid(rec, r_in, flux);
+        } else {
+            estimate_caustic_bruteforce(rec, r_in, flux);
         }
 
-        SpectralEnergy brdf = rec.mat->photon_gather_brdf(r_in, rec, query_wl);
+        SpectralEnergy brdf = rec.mat->photon_gather_brdf(r_in, rec, r_in.wavelengths());
 
         // Integral of kernel w(r)=1-r/R over a disk is πR²/3.
         const double kernel_area = pi * gather_radius * gather_radius / 3.0;
@@ -249,6 +274,113 @@ class photon_map {
 
   private:
     std::vector<spectral_photon> photons;
+
+    std::unordered_map<
+        photon_grid_key,
+        std::vector<int>,
+        photon_grid_key_hash
+    > grid;
+
+    bool grid_built = false;
+    double effective_cell_size = 0.0;
+
+    photon_grid_key point_to_key(const point3& p) const {
+        return photon_grid_key{
+            int(std::floor(p.x() / effective_cell_size)),
+            int(std::floor(p.y() / effective_cell_size)),
+            int(std::floor(p.z() / effective_cell_size))
+        };
+    }
+
+    void accumulate_photon(
+        const spectral_photon& photon,
+        const hit_record& rec,
+        const ray& r_in,
+        SpectralEnergy& flux
+    ) const {
+        vec3 delta = photon.position - rec.p;
+        double dist2 = delta.length_squared();
+        const double radius2 = gather_radius * gather_radius;
+
+        if (dist2 > radius2)
+            return;
+
+        if (dot(photon.normal, rec.normal) <= 0.1)
+            return;
+
+        double dist = std::sqrt(dist2);
+        double spatial_weight = 1.0 - dist / gather_radius;
+
+        if (spatial_weight <= 0.0)
+            return;
+
+        const Wavelengths& query_wl = r_in.wavelengths();
+
+        for (int q = 0; q < WL_PER_RAY; ++q) {
+            if (query_wl.hero_only && q != 0)
+                continue;
+
+            for (int p = 0; p < WL_PER_RAY; ++p) {
+                if (photon.wavelengths.hero_only && p != 0)
+                    continue;
+
+                if (photon.power.energy[p] <= 0.0)
+                    continue;
+
+                double distance_nm =
+                    std::fabs(query_wl.lambda[q] - photon.wavelengths.lambda[p]);
+
+                if (distance_nm >= spectral_radius_nm)
+                    continue;
+
+                double spectral_weight = 1.0 - distance_nm / spectral_radius_nm;
+                double weight = spatial_weight * spectral_weight;
+
+                flux.energy[q] += weight * photon.power.energy[p];
+            }
+        }
+    }
+
+    void estimate_caustic_bruteforce(
+        const hit_record& rec,
+        const ray& r_in,
+        SpectralEnergy& flux
+    ) const {
+        for (const auto& photon : photons) {
+            accumulate_photon(photon, rec, r_in, flux);
+        }
+    }
+
+    void estimate_caustic_grid(
+        const hit_record& rec,
+        const ray& r_in,
+        SpectralEnergy& flux
+    ) const {
+        photon_grid_key center_key = point_to_key(rec.p);
+
+        int cell_radius = int(std::ceil(gather_radius / effective_cell_size));
+
+        for (int dz = -cell_radius; dz <= cell_radius; ++dz) {
+            for (int dy = -cell_radius; dy <= cell_radius; ++dy) {
+                for (int dx = -cell_radius; dx <= cell_radius; ++dx) {
+                    photon_grid_key key{
+                        center_key.x + dx,
+                        center_key.y + dy,
+                        center_key.z + dz
+                    };
+
+                    auto it = grid.find(key);
+
+                    if (it == grid.end())
+                        continue;
+
+                    for (int photon_index : it->second) {
+                        accumulate_photon(photons[photon_index], rec, r_in, flux);
+                    }
+                }
+            }
+        }
+    }
 };
 
 inline void build_caustic_photon_map(
@@ -313,6 +445,7 @@ inline void build_caustic_photon_map(
     }
 
     std::clog << "\rPhoton pass: done, stored " << map.size() << " caustic photons.          \n";
+    map.build_grid();
 }
 
 #endif
