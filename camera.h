@@ -197,6 +197,13 @@ class camera {
         SpectralEnergy sample_color =
             ray_color(scattered, depth - 1, world, lights, caustic_map);
 
+        // SpectralEnergy color_from_scatter = // debug for photon distribution
+        //   allow_caustic_gather
+        //     ? caustic_map.estimate_caustic(rec, r)
+        //     : SpectralEnergy(0.0);
+
+        // return color_from_caustic;
+        
         SpectralEnergy color_from_scatter =
             (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
 

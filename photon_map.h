@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <vector>
 
 #include "rtweekend.h"
@@ -193,6 +195,56 @@ class photon_map {
         const double kernel_area = pi * gather_radius * gather_radius / 3.0;
 
         return caustic_strength * (brdf * (flux / kernel_area));
+    }
+
+    void write_ply(const std::string& filename, double color_scale = 1.0) const {
+        std::ofstream out(filename);
+
+        if (!out) {
+            std::clog << "Failed to write photon PLY: " << filename << "\n";
+            return;
+        }
+
+        out << "ply\n";
+        out << "format ascii 1.0\n";
+        out << "element vertex " << photons.size() << "\n";
+        out << "property float x\n";
+        out << "property float y\n";
+        out << "property float z\n";
+        out << "property uchar red\n";
+        out << "property uchar green\n";
+        out << "property uchar blue\n";
+        out << "end_header\n";
+
+        for (const auto& photon : photons) {
+            vec3 rgb = spectral_to_rgb(photon.power * color_scale, photon.wavelengths);
+
+            auto to_byte = [](double x) -> int {
+                x = std::fmax(0.0, x);
+
+                // Gamma-like display compression for debug visibility.
+                x = std::sqrt(x);
+
+                if (x < 0.0) x = 0.0;
+                if (x > 0.999) x = 0.999;
+
+                return int(256.0 * x);
+            };
+
+            int r = to_byte(rgb.x());
+            int g = to_byte(rgb.y());
+            int b = to_byte(rgb.z());
+
+            out << photon.position.x() << ' '
+                << photon.position.y() << ' '
+                << photon.position.z() << ' '
+                << r << ' '
+                << g << ' '
+                << b << '\n';
+        }
+
+        std::clog << "Wrote photon point cloud: " << filename
+                  << " (" << photons.size() << " photons)\n";
     }
 
   private:
