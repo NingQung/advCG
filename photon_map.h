@@ -138,6 +138,14 @@ class photon_map {
     // Turn this off to compare against brute-force search.
     bool use_spatial_grid = true;
 
+    // Adaptive gather tries to avoid isolated photon speckles.
+    // gather_radius becomes the initial radius.
+    // max_gather_radius is the largest radius it may expand to.
+    bool use_adaptive_gather = true;
+    int min_photons_per_gather = 30;
+    double max_gather_radius = 18.0;
+    double adaptive_radius_growth = 1.5;
+
     void clear() {
         photons.clear();
         grid.clear();
@@ -206,18 +214,25 @@ class photon_map {
         if (!rec.mat->supports_photon_gather())
             return SpectralEnergy(0.0);
 
+        double radius = gather_radius;
+
+        if (use_adaptive_gather) {
+            if (!choose_adaptive_radius(rec, radius))
+                return SpectralEnergy(0.0);
+        }
+
         SpectralEnergy flux(0.0);
 
-        if (use_spatial_grid && grid_built && effective_cell_size > 0.0) {
-            estimate_caustic_grid(rec, r_in, flux);
+        if (has_valid_grid()) {
+            accumulate_caustic_grid(rec, r_in, radius, flux);
         } else {
-            estimate_caustic_bruteforce(rec, r_in, flux);
+            accumulate_caustic_bruteforce(rec, r_in, radius, flux);
         }
 
         SpectralEnergy brdf = rec.mat->photon_gather_brdf(r_in, rec, r_in.wavelengths());
 
         // Integral of kernel w(r)=1-r/R over a disk is πR²/3.
-        const double kernel_area = pi * gather_radius * gather_radius / 3.0;
+        const double kernel_area = pi * radius * radius / 3.0;
 
         return caustic_strength * (brdf * (flux / kernel_area));
     }
@@ -292,15 +307,108 @@ class photon_map {
         };
     }
 
+    bool has_valid_grid() const {
+        return use_spatial_grid && grid_built && effective_cell_size > 0.0;
+    }
+
+    bool photon_spatially_valid(
+        const spectral_photon& photon,
+        const hit_record& rec,
+        double radius
+    ) const {
+        vec3 delta = photon.position - rec.p;
+        double dist2 = delta.length_squared();
+        double radius2 = radius * radius;
+
+        if (dist2 > radius2)
+            return false;
+
+        if (dot(photon.normal, rec.normal) <= 0.1)
+            return false;
+
+        return true;
+    }
+
+    bool choose_adaptive_radius(const hit_record& rec, double& chosen_radius) const {
+        double radius = gather_radius;
+        double max_radius = std::max(max_gather_radius, gather_radius);
+
+        while (radius <= max_radius) {
+            int count = count_photons_in_radius(rec, radius);
+
+            if (count >= min_photons_per_gather) {
+                chosen_radius = radius;
+                return true;
+            }
+
+            if (radius >= max_radius)
+                break;
+
+            radius = std::min(radius * adaptive_radius_growth, max_radius);
+        }
+
+        return false;
+    }
+
+    int count_photons_in_radius(const hit_record& rec, double radius) const {
+        if (has_valid_grid())
+            return count_photons_grid(rec, radius);
+
+        return count_photons_bruteforce(rec, radius);
+    }
+
+    int count_photons_bruteforce(const hit_record& rec, double radius) const {
+        int count = 0;
+
+        for (const auto& photon : photons) {
+            if (photon_spatially_valid(photon, rec, radius))
+                count++;
+        }
+
+        return count;
+    }
+
+    int count_photons_grid(const hit_record& rec, double radius) const {
+        int count = 0;
+
+        photon_grid_key center_key = point_to_key(rec.p);
+        int cell_radius = int(std::ceil(radius / effective_cell_size));
+
+        for (int dz = -cell_radius; dz <= cell_radius; ++dz) {
+            for (int dy = -cell_radius; dy <= cell_radius; ++dy) {
+                for (int dx = -cell_radius; dx <= cell_radius; ++dx) {
+                    photon_grid_key key{
+                        center_key.x + dx,
+                        center_key.y + dy,
+                        center_key.z + dz
+                    };
+
+                    auto it = grid.find(key);
+
+                    if (it == grid.end())
+                        continue;
+
+                    for (int photon_index : it->second) {
+                        if (photon_spatially_valid(photons[photon_index], rec, radius))
+                            count++;
+                    }
+                }
+            }
+        }
+
+        return count;
+    }
+
     void accumulate_photon(
         const spectral_photon& photon,
         const hit_record& rec,
         const ray& r_in,
+        double radius,
         SpectralEnergy& flux
     ) const {
         vec3 delta = photon.position - rec.p;
         double dist2 = delta.length_squared();
-        const double radius2 = gather_radius * gather_radius;
+        double radius2 = radius * radius;
 
         if (dist2 > radius2)
             return;
@@ -309,7 +417,7 @@ class photon_map {
             return;
 
         double dist = std::sqrt(dist2);
-        double spatial_weight = 1.0 - dist / gather_radius;
+        double spatial_weight = 1.0 - dist / radius;
 
         if (spatial_weight <= 0.0)
             return;
@@ -341,24 +449,25 @@ class photon_map {
         }
     }
 
-    void estimate_caustic_bruteforce(
+    void accumulate_caustic_bruteforce(
         const hit_record& rec,
         const ray& r_in,
+        double radius,
         SpectralEnergy& flux
     ) const {
         for (const auto& photon : photons) {
-            accumulate_photon(photon, rec, r_in, flux);
+            accumulate_photon(photon, rec, r_in, radius, flux);
         }
     }
 
-    void estimate_caustic_grid(
+    void accumulate_caustic_grid(
         const hit_record& rec,
         const ray& r_in,
+        double radius,
         SpectralEnergy& flux
     ) const {
         photon_grid_key center_key = point_to_key(rec.p);
-
-        int cell_radius = int(std::ceil(gather_radius / effective_cell_size));
+        int cell_radius = int(std::ceil(radius / effective_cell_size));
 
         for (int dz = -cell_radius; dz <= cell_radius; ++dz) {
             for (int dy = -cell_radius; dy <= cell_radius; ++dy) {
@@ -375,7 +484,7 @@ class photon_map {
                         continue;
 
                     for (int photon_index : it->second) {
-                        accumulate_photon(photons[photon_index], rec, r_in, flux);
+                        accumulate_photon(photons[photon_index], rec, r_in, radius, flux);
                     }
                 }
             }

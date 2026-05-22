@@ -134,11 +134,18 @@ int main() {
     photon_map caustic_map;
     caustic_map.photon_count = 500000;
     caustic_map.max_depth = 20;
-    caustic_map.gather_radius = 6.0;
-    caustic_map.grid_cell_size = caustic_map.gather_radius;
+
+    caustic_map.gather_radius = 4.0;
+    caustic_map.max_gather_radius = 18.0;
+    caustic_map.min_photons_per_gather = 30;
+    caustic_map.adaptive_radius_growth = 1.5;
+
+    caustic_map.grid_cell_size = 6.0;
     caustic_map.spectral_radius_nm = 40.0;
     caustic_map.caustic_strength = 2.0;
+
     caustic_map.use_spatial_grid = true;
+    caustic_map.use_adaptive_gather = true;
 
     build_caustic_photon_map(world, emitters, caustic_map);
     caustic_map.write_ply("caustic_photons.ply", 50000.0);
