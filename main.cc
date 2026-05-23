@@ -132,7 +132,7 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     photon_map caustic_map;
-    caustic_map.photon_count = 500000;
+    caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
     caustic_map.gather_radius = 4.0;
@@ -148,7 +148,6 @@ int main() {
     caustic_map.use_adaptive_gather = true;
 
     build_caustic_photon_map(world, emitters, caustic_map);
-    caustic_map.write_ply("caustic_photons.ply", 50000.0);
 
     cam.render(world, lights, caustic_map);
 

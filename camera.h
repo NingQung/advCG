@@ -22,6 +22,8 @@ class camera {
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
+    bool debug_only_photon_render = false;  // debug mode 
+
     void render(const hittable& world, const hittable& lights) {
         photon_map empty_caustic_map;
         render(world, lights, empty_caustic_map);
@@ -194,20 +196,20 @@ class camera {
                 rec.mat->scattering_pdf(r, rec, scattered, r.wavelengths().lambda[k]);
         }
 
-        SpectralEnergy sample_color =
-            ray_color(scattered, depth - 1, world, lights, caustic_map);
+        SpectralEnergy sample_color = ray_color(scattered, depth - 1, world, lights, caustic_map);
 
-        // SpectralEnergy color_from_scatter = // debug for photon distribution
-        //   allow_caustic_gather
-        //     ? caustic_map.estimate_caustic(rec, r)
-        //     : SpectralEnergy(0.0);
+        if (debug_only_photon_render) {
+            SpectralEnergy color_from_scatter = // debug for photon distribution
+            allow_caustic_gather
+              ? caustic_map.estimate_caustic(rec, r)
+              : SpectralEnergy(0.0);
 
-        // return color_from_caustic;
-        
-        SpectralEnergy color_from_scatter =
-            (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
+            return color_from_caustic;
+        } else {
+            SpectralEnergy color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
 
-        return color_from_emission + color_from_caustic + color_from_scatter;
+            return color_from_emission + color_from_caustic + color_from_scatter;
+        }
     }
 };
 

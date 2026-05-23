@@ -138,6 +138,11 @@ class photon_map {
     // Turn this off to compare against brute-force search.
     bool use_spatial_grid = true;
 
+    // debug for photon map to ply file.
+    bool debug_write_ply = false;
+    std::string debug_ply_filename = "caustic_photons.ply";
+    double debug_ply_color_scale = 50000.0;
+
     // Adaptive gather tries to avoid isolated photon speckles.
     // gather_radius becomes the initial radius.
     // max_gather_radius is the largest radius it may expand to.
@@ -285,6 +290,12 @@ class photon_map {
 
         std::clog << "Wrote photon point cloud: " << filename
                   << " (" << photons.size() << " photons)\n";
+    }
+
+    void write_debug_outputs() const {
+        if (debug_write_ply) {
+            write_ply(debug_ply_filename, debug_ply_color_scale);
+        }
     }
 
   private:
@@ -555,6 +566,7 @@ inline void build_caustic_photon_map(
 
     std::clog << "\rPhoton pass: done, stored " << map.size() << " caustic photons.          \n";
     map.build_grid();
+    map.write_debug_outputs();
 }
 
 #endif
