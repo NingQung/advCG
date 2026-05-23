@@ -124,15 +124,17 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 100;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
 
+    cam.debug_only_photon_render = true;
+
     auto start = std::chrono::high_resolution_clock::now();
 
     photon_map caustic_map;
-    caustic_map.photon_count = 5000000;
+    caustic_map.photon_count = 500000;
     caustic_map.max_depth = 20;
 
     caustic_map.gather_radius = 4.0;
@@ -146,6 +148,16 @@ int main() {
 
     caustic_map.use_spatial_grid = true;
     caustic_map.use_adaptive_gather = true;
+
+    caustic_map.use_k_nearest_gather = true;
+    caustic_map.k_nearest_photon_count = 50;
+    caustic_map.k_nearest_max_radius = 18.0;
+    caustic_map.k_nearest_radius_growth = 1.5;
+    caustic_map.k_nearest_require_full_count = true;
+
+    caustic_map.debug_write_ply = false;
+    caustic_map.debug_ply_filename = "caustic_photons.ply";
+    caustic_map.debug_ply_color_scale = 50000.0;
 
     build_caustic_photon_map(world, emitters, caustic_map);
 

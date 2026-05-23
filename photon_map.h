@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "rtweekend.h"
@@ -41,6 +42,11 @@ struct photon_grid_key_hash {
 
         return h1 ^ (h2 * 73856093u) ^ (h3 * 19349663u);
     }
+};
+
+struct photon_candidate {
+    int photon_index;
+    double dist2;
 };
 
 inline bool has_positive_spectral_power(const SpectralEnergy& power) {
@@ -151,6 +157,14 @@ class photon_map {
     double max_gather_radius = 18.0;
     double adaptive_radius_growth = 1.5;
 
+    // K-nearest gather uses the current spatial grid to collect nearby candidates.
+    // It replaces radius accumulation with a fixed number of nearest photons.
+    bool use_k_nearest_gather = false;
+    int k_nearest_photon_count = 50;
+    double k_nearest_max_radius = 18.0;
+    double k_nearest_radius_growth = 1.5;
+    bool k_nearest_require_full_count = true;
+
     void clear() {
         photons.clear();
         grid.clear();
@@ -220,18 +234,22 @@ class photon_map {
             return SpectralEnergy(0.0);
 
         double radius = gather_radius;
-
-        if (use_adaptive_gather) {
-            if (!choose_adaptive_radius(rec, radius))
-                return SpectralEnergy(0.0);
-        }
-
         SpectralEnergy flux(0.0);
 
-        if (has_valid_grid()) {
-            accumulate_caustic_grid(rec, r_in, radius, flux);
+        if (use_k_nearest_gather) {
+            if (!gather_k_nearest(rec, r_in, flux, radius))
+                return SpectralEnergy(0.0);
         } else {
-            accumulate_caustic_bruteforce(rec, r_in, radius, flux);
+            if (use_adaptive_gather) {
+                if (!choose_adaptive_radius(rec, radius))
+                    return SpectralEnergy(0.0);
+            }
+
+            if (has_valid_grid()) {
+                accumulate_caustic_grid(rec, r_in, radius, flux);
+            } else {
+                accumulate_caustic_bruteforce(rec, r_in, radius, flux);
+            }
         }
 
         SpectralEnergy brdf = rec.mat->photon_gather_brdf(r_in, rec, r_in.wavelengths());
@@ -345,7 +363,7 @@ class photon_map {
         double max_radius = std::max(max_gather_radius, gather_radius);
 
         while (radius <= max_radius) {
-            int count = count_photons_in_radius(rec, radius);
+            int count = count_photons_in_radius(rec, radius, min_photons_per_gather);
 
             if (count >= min_photons_per_gather) {
                 chosen_radius = radius;
@@ -361,25 +379,29 @@ class photon_map {
         return false;
     }
 
-    int count_photons_in_radius(const hit_record& rec, double radius) const {
+    int count_photons_in_radius(const hit_record& rec, double radius, int stop_at) const {
         if (has_valid_grid())
-            return count_photons_grid(rec, radius);
+            return count_photons_grid(rec, radius, stop_at);
 
-        return count_photons_bruteforce(rec, radius);
+        return count_photons_bruteforce(rec, radius, stop_at);
     }
 
-    int count_photons_bruteforce(const hit_record& rec, double radius) const {
+    int count_photons_bruteforce(const hit_record& rec, double radius, int stop_at) const {
         int count = 0;
 
         for (const auto& photon : photons) {
-            if (photon_spatially_valid(photon, rec, radius))
+            if (photon_spatially_valid(photon, rec, radius)) {
                 count++;
+
+                if (stop_at > 0 && count >= stop_at)
+                    return count;
+            }
         }
 
         return count;
     }
 
-    int count_photons_grid(const hit_record& rec, double radius) const {
+    int count_photons_grid(const hit_record& rec, double radius, int stop_at) const {
         int count = 0;
 
         photon_grid_key center_key = point_to_key(rec.p);
@@ -400,8 +422,12 @@ class photon_map {
                         continue;
 
                     for (int photon_index : it->second) {
-                        if (photon_spatially_valid(photons[photon_index], rec, radius))
+                        if (photon_spatially_valid(photons[photon_index], rec, radius)) {
                             count++;
+
+                            if (stop_at > 0 && count >= stop_at)
+                                return count;
+                        }
                     }
                 }
             }
@@ -460,6 +486,90 @@ class photon_map {
         }
     }
 
+    bool gather_k_nearest(
+        const hit_record& rec,
+        const ray& r_in,
+        SpectralEnergy& flux,
+        double& estimate_radius
+    ) const {
+        if (k_nearest_photon_count <= 0)
+            return false;
+
+        double radius = gather_radius;
+        double max_radius = std::max(k_nearest_max_radius, gather_radius);
+
+        std::vector<photon_candidate> candidates;
+
+        while (radius <= max_radius) {
+            candidates.clear();
+            collect_photon_candidates(rec, radius, candidates);
+
+            if (int(candidates.size()) >= k_nearest_photon_count)
+                break;
+
+            if (radius >= max_radius)
+                break;
+
+            radius = std::min(radius * k_nearest_radius_growth, max_radius);
+        }
+
+        if (candidates.empty())
+            return false;
+
+        if (k_nearest_require_full_count &&
+            int(candidates.size()) < k_nearest_photon_count)
+            return false;
+
+        int used_count = std::min(k_nearest_photon_count, int(candidates.size()));
+
+        if (used_count <= 0)
+            return false;
+
+        auto by_distance = [](const photon_candidate& a, const photon_candidate& b) {
+            return a.dist2 < b.dist2;
+        };
+
+        if (int(candidates.size()) > used_count) {
+            std::nth_element(
+                candidates.begin(),
+                candidates.begin() + used_count - 1,
+                candidates.end(),
+                by_distance
+            );
+
+            candidates.resize(used_count);
+        }
+
+        double max_dist2 = 0.0;
+
+        for (const auto& candidate : candidates) {
+            max_dist2 = std::max(max_dist2, candidate.dist2);
+        }
+
+        estimate_radius = std::sqrt(std::max(max_dist2, 1e-12));
+
+        // Avoid placing the farthest selected photon exactly on a zero-weight boundary.
+        estimate_radius *= 1.0001;
+
+        for (const auto& candidate : candidates) {
+            accumulate_photon(photons[candidate.photon_index], rec, r_in, estimate_radius, flux);
+        }
+
+        return true;
+    }
+
+    void collect_photon_candidates(
+        const hit_record& rec,
+        double radius,
+        std::vector<photon_candidate>& candidates
+    ) const {
+        if (has_valid_grid()) {
+            collect_photon_candidates_grid(rec, radius, candidates);
+        } else {
+            collect_photon_candidates_bruteforce(rec, radius, candidates);
+        }
+    }
+
     void accumulate_caustic_bruteforce(
         const hit_record& rec,
         const ray& r_in,
@@ -469,6 +579,67 @@ class photon_map {
         for (const auto& photon : photons) {
             accumulate_photon(photon, rec, r_in, radius, flux);
         }
+    }
+
+    void collect_photon_candidates_bruteforce(
+        const hit_record& rec,
+        double radius,
+        std::vector<photon_candidate>& candidates
+    ) const {
+        for (int i = 0; i < int(photons.size()); ++i) {
+            push_candidate_if_valid(i, rec, radius, candidates);
+        }
+    }
+
+    void collect_photon_candidates_grid(
+        const hit_record& rec,
+        double radius,
+        std::vector<photon_candidate>& candidates
+    ) const {
+        photon_grid_key center_key = point_to_key(rec.p);
+        int cell_radius = int(std::ceil(radius / effective_cell_size));
+
+        for (int dz = -cell_radius; dz <= cell_radius; ++dz) {
+            for (int dy = -cell_radius; dy <= cell_radius; ++dy) {
+                for (int dx = -cell_radius; dx <= cell_radius; ++dx) {
+                    photon_grid_key key{
+                        center_key.x + dx,
+                        center_key.y + dy,
+                        center_key.z + dz
+                    };
+
+                    auto it = grid.find(key);
+
+                    if (it == grid.end())
+                        continue;
+
+                    for (int photon_index : it->second) {
+                        push_candidate_if_valid(photon_index, rec, radius, candidates);
+                    }
+                }
+            }
+        }
+    }
+
+    void push_candidate_if_valid(
+        int photon_index,
+        const hit_record& rec,
+        double radius,
+        std::vector<photon_candidate>& candidates
+    ) const {
+        const spectral_photon& photon = photons[photon_index];
+
+        vec3 delta = photon.position - rec.p;
+        double dist2 = delta.length_squared();
+        double radius2 = radius * radius;
+
+        if (dist2 > radius2)
+            return;
+
+        if (dot(photon.normal, rec.normal) <= 0.1)
+            return;
+
+        candidates.push_back({photon_index, dist2});
     }
 
     void accumulate_caustic_grid(
