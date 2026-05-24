@@ -175,6 +175,10 @@ class camera {
         SpectralEnergy color_from_caustic = allow_caustic_gather ? 
           caustic_map.estimate_caustic(rec, r) : SpectralEnergy(0.0);
 
+        if (debug_only_photon_render) {
+            return color_from_caustic;
+        }
+
         auto light_ptr = make_shared<spectral_light_pdf>(lights, rec.p);
         mixture_pdf p(light_ptr, srec.pdf_ptr);
 
@@ -196,20 +200,11 @@ class camera {
                 rec.mat->scattering_pdf(r, rec, scattered, r.wavelengths().lambda[k]);
         }
 
-        SpectralEnergy sample_color = ray_color(scattered, depth - 1, world, lights, caustic_map);
+        SpectralEnergy sample_color = ray_color(scattered, depth - 1, world, lights, caustic_map, false);
+        SpectralEnergy color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
 
-        if (debug_only_photon_render) {
-            SpectralEnergy color_from_scatter = // debug for photon distribution
-            allow_caustic_gather
-              ? caustic_map.estimate_caustic(rec, r)
-              : SpectralEnergy(0.0);
+        return color_from_emission + color_from_caustic + color_from_scatter;
 
-            return color_from_caustic;
-        } else {
-            SpectralEnergy color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
-
-            return color_from_emission + color_from_caustic + color_from_scatter;
-        }
     }
 };
 
