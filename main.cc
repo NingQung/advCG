@@ -58,7 +58,13 @@ int main() {
       world.add(box1);
 
       // Glass Sphere
-      world.add(make_shared<sphere>(point3(190,90,190), 90, glass));
+      // world.add(make_shared<sphere>(point3(190,90,190), 90, glass));
+
+      // Box 2
+      shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
+      box2 = make_shared<rotate_y>(box2, -18);
+      box2 = make_shared<translate>(box2, vec3(130,10,65));
+      world.add(box2);
 
       cam.vfov     = 40;
       cam.lookfrom = point3(278, 278, -800);
@@ -130,11 +136,13 @@ int main() {
     cam.defocus_angle = 0;
 
     cam.debug_only_photon_render = false;
+    cam.use_parallel_render = true;
+    cam.thread_count = 4; // auto
 
     auto start = std::chrono::high_resolution_clock::now();
 
     photon_map caustic_map;
-    caustic_map.photon_count = 500000;
+    caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
     caustic_map.gather_radius = 4.0;

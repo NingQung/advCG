@@ -1,6 +1,12 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include <algorithm>
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include <vector>
+
 #include "hittable.h"
 #include "pdf.h"
 #include "material.h"
@@ -23,6 +29,9 @@ class camera {
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
     bool debug_only_photon_render = false;  // debug mode 
+    bool use_parallel_render = true;
+    // <= 0 means use std::thread::hardware_concurrency().
+    int thread_count = 0;
 
     void render(const hittable& world, const hittable& lights) {
         photon_map empty_caustic_map;
@@ -32,27 +41,74 @@ class camera {
     void render(const hittable& world, const hittable& lights, const photon_map& caustic_map) {
         initialize();
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        std::vector<color> framebuffer(image_width * image_height, color(0, 0, 0));
 
-        for (int j = 0; j < image_height; j++) {
-            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+        int worker_count = 1;
 
-            for (int i = 0; i < image_width; i++) {
-                color pixel_color(0,0,0);
+        if (use_parallel_render) {
+            unsigned int hardware_threads = std::thread::hardware_concurrency();
 
-                for (int s_j = 0; s_j < sqrt_spp; s_j++) {
-                    for (int s_i = 0; s_i < sqrt_spp; s_i++) {
-                        ray r = get_ray(i, j, s_i, s_j);
+            if (thread_count > 0) {
+                worker_count = thread_count;
+            } else if (hardware_threads > 0) {
+                worker_count = int(hardware_threads);
+            } else {
+                worker_count = 1;
+            }
+        }
 
-                        SpectralEnergy sample_energy =
-                            ray_color(r, max_depth, world, lights, caustic_map);
+        worker_count = std::max(1, worker_count);
 
-                        vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
-                        pixel_color += sample_rgb;
-                    }
+        std::clog << "Render threads: " << worker_count << "\n";
+
+        std::atomic<int> next_row(0);
+        std::atomic<int> completed_rows(0);
+        std::mutex log_mutex;
+
+        auto render_worker = [&]() {
+            while (true) {
+                int j = next_row.fetch_add(1, std::memory_order_relaxed);
+
+                if (j >= image_height)
+                    break;
+
+                for (int i = 0; i < image_width; ++i) {
+                    framebuffer[j * image_width + i] =
+                        render_pixel(i, j, world, lights, caustic_map);
                 }
 
-                write_color(std::cout, pixel_samples_scale * pixel_color);
+                int done = completed_rows.fetch_add(1, std::memory_order_relaxed) + 1;
+
+                if (done == image_height || done % 8 == 0) {
+                    std::lock_guard<std::mutex> lock(log_mutex);
+                    std::clog << "\rScanlines remaining: "
+                              << (image_height - done) << ' ' << std::flush;
+                }
+            }
+        };
+
+        if (worker_count == 1) {
+            render_worker();
+        } else {
+            std::vector<std::thread> workers;
+            workers.reserve(worker_count);
+
+            for (int t = 0; t < worker_count; ++t) {
+                workers.emplace_back(render_worker);
+            }
+
+            for (auto& worker : workers) {
+                worker.join();
+            }
+        }
+
+        std::clog << "\rWriting image.                 \n";
+
+        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+
+        for (int j = 0; j < image_height; ++j) {
+            for (int i = 0; i < image_width; ++i) {
+                write_color(std::cout, framebuffer[j * image_width + i]);
             }
         }
 
@@ -77,6 +133,8 @@ class camera {
         image_height = (image_height < 1) ? 1 : image_height;
 
         sqrt_spp = int(std::sqrt(samples_per_pixel));
+        sqrt_spp = (sqrt_spp < 1) ? 1 : sqrt_spp;
+
         pixel_samples_scale = 1.0 / (sqrt_spp * sqrt_spp);
         recip_sqrt_spp = 1.0 / sqrt_spp;
 
@@ -152,6 +210,29 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
+    color render_pixel(
+        int i,
+        int j,
+        const hittable& world,
+        const hittable& lights,
+        const photon_map& caustic_map
+    ) const {
+        color pixel_color(0, 0, 0);
+
+        for (int s_j = 0; s_j < sqrt_spp; ++s_j) {
+            for (int s_i = 0; s_i < sqrt_spp; ++s_i) {
+                ray r = get_ray(i, j, s_i, s_j);
+
+                SpectralEnergy sample_energy =
+                    ray_color(r, max_depth, world, lights, caustic_map);
+
+                vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
+                pixel_color += sample_rgb;
+            }
+        }
+
+        return pixel_samples_scale * pixel_color;
+    }
 
     SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights, const photon_map& caustic_map, bool allow_caustic_gather = true) const {
         if (depth <= 0)
