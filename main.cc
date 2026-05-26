@@ -27,8 +27,8 @@ int main() {
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
-    auto glass = make_shared<dielectric>(1.7, 0.015);
-    auto glass2 = make_shared<dielectric>(1.5, 0.015);
+    auto glass = make_shared<dielectric>(1.7, 0.15);
+    auto glass2 = make_shared<dielectric>(1.5, 0.15);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
     auto checker_mat = make_shared<lambertian>(checker_tex);
     auto wave_tex = make_shared<wave_texture>(25.0,color(.85, .85, .85),color(.10, .10, .10));
@@ -51,7 +51,7 @@ int main() {
       auto light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
       world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
       lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
-      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(60.0, 60.0, 60.0));
+      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(10.0, 10.0, 10.0));
       // Box 1
       shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
       box1 = make_shared<rotate_y>(box1, 15);
@@ -60,6 +60,7 @@ int main() {
 
       // Glass Sphere
       world.add(make_shared<sphere>(point3(190,150,190), 100, glass2));
+      world.add(make_shared<sphere>(point3(190,150,190), 50, glass));
 
       // Box 2
       // shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
@@ -137,8 +138,9 @@ int main() {
     cam.defocus_angle = 0;
 
     cam.debug_only_photon_render = false;
+    cam.use_photon_rgb_caustic = true;
     cam.use_parallel_render = true;
-    cam.thread_count = 4; // auto
+    cam.thread_count = 8; // auto
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -146,7 +148,7 @@ int main() {
     caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
-    caustic_map.gather_radius = 2.0;
+    caustic_map.gather_radius = 4.0;
     caustic_map.max_gather_radius = 18.0;
     caustic_map.min_photons_per_gather = 30;
     caustic_map.adaptive_radius_growth = 1.5;

@@ -29,6 +29,7 @@ class camera {
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
     bool debug_only_photon_render = false;  // debug mode 
+    bool use_photon_rgb_caustic = false;
     bool use_parallel_render = true;
     // <= 0 means use std::thread::hardware_concurrency().
     int thread_count = 0;
@@ -210,6 +211,14 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
+    struct sample_result {
+        SpectralEnergy spectral;
+        color photon_rgb_caustic;
+
+        sample_result()
+            : spectral(0.0), photon_rgb_caustic(0, 0, 0) {}
+    };
+
     color render_pixel(
         int i,
         int j,
@@ -223,15 +232,124 @@ class camera {
             for (int s_i = 0; s_i < sqrt_spp; ++s_i) {
                 ray r = get_ray(i, j, s_i, s_j);
 
-                SpectralEnergy sample_energy =
-                    ray_color(r, max_depth, world, lights, caustic_map);
+                if (use_photon_rgb_caustic) {
+                    sample_result sample =
+                        ray_color_with_rgb_caustic(r, max_depth, world, lights, caustic_map);
 
-                vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
-                pixel_color += sample_rgb;
+                    vec3 sample_rgb = spectral_to_rgb(sample.spectral, r.wavelengths());
+                    pixel_color += sample_rgb + sample.photon_rgb_caustic;
+                } else {
+                    SpectralEnergy sample_energy =
+                        ray_color(r, max_depth, world, lights, caustic_map);
+
+                    vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
+                    pixel_color += sample_rgb;
+                }
             }
         }
 
         return pixel_samples_scale * pixel_color;
+    }
+
+    sample_result ray_color_with_rgb_caustic(
+        const ray& r,
+        int depth,
+        const hittable& world,
+        const hittable& lights,
+        const photon_map& caustic_map,
+        bool allow_caustic_gather = true
+    ) const {
+        sample_result result;
+
+        if (depth <= 0)
+            return result;
+
+        hit_record rec;
+
+        if (!world.hit(r, interval(0.001, infinity), rec))
+            return result;
+
+        scatter_record srec;
+        SpectralEnergy color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
+
+        if (!rec.mat->scatter(r, rec, srec)) {
+            result.spectral = color_from_emission;
+            return result;
+        }
+
+        if (srec.skip_pdf) {
+            sample_result child =
+                ray_color_with_rgb_caustic(
+                    srec.skip_pdf_ray,
+                    depth - 1,
+                    world,
+                    lights,
+                    caustic_map,
+                    allow_caustic_gather
+                );
+
+            result.spectral = srec.attenuation * child.spectral;
+
+            // Convert specular attenuation on this camera path to RGB and apply it
+            // to the RGB caustic side-channel. This keeps camera-through-glass
+            // caustics from ignoring the glass path.
+            color attenuation_rgb = spectral_to_rgb(srec.attenuation, r.wavelengths());
+            result.photon_rgb_caustic = attenuation_rgb * child.photon_rgb_caustic;
+
+            return result;
+        }
+
+        color color_from_caustic =
+            allow_caustic_gather
+                ? caustic_map.estimate_caustic_rgb(rec, r)
+                : color(0, 0, 0);
+
+        if (debug_only_photon_render) {
+            result.photon_rgb_caustic = color_from_caustic;
+            return result;
+        }
+
+        auto light_ptr = make_shared<spectral_light_pdf>(lights, rec.p);
+        mixture_pdf p(light_ptr, srec.pdf_ptr);
+
+        ray scattered = ray(rec.p, p.generate(r.wavelengths()), r.time(), r.wavelengths());
+        auto pdf_value = p.value_joint(scattered.direction(), r.wavelengths());
+
+        if (pdf_value <= 0.0) {
+            result.spectral = color_from_emission;
+            result.photon_rgb_caustic = color_from_caustic;
+            return result;
+        }
+
+        SpectralEnergy scattering_pdf;
+
+        for (int k = 0; k < WL_PER_RAY; ++k) {
+            if (r.wavelengths().hero_only && k != 0) {
+                scattering_pdf.energy[k] = 0.0;
+                continue;
+            }
+
+            scattering_pdf.energy[k] =
+                rec.mat->scattering_pdf(r, rec, scattered, r.wavelengths().lambda[k]);
+        }
+
+        sample_result child =
+            ray_color_with_rgb_caustic(
+                scattered,
+                depth - 1,
+                world,
+                lights,
+                caustic_map,
+                false
+            );
+
+        result.spectral =
+            color_from_emission +
+            (srec.attenuation * scattering_pdf * child.spectral) / pdf_value;
+
+        result.photon_rgb_caustic = color_from_caustic;
+
+        return result;
     }
 
     SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights, const photon_map& caustic_map, bool allow_caustic_gather = true) const {

@@ -260,6 +260,44 @@ class photon_map {
         return caustic_strength * (brdf * (flux / kernel_area));
     }
 
+    color estimate_caustic_rgb(const hit_record& rec, const ray& r_in) const {
+        if (photons.empty() || gather_radius <= 0.0)
+            return color(0, 0, 0);
+
+        if (!rec.mat->supports_photon_gather())
+            return color(0, 0, 0);
+
+        double radius = gather_radius;
+        std::vector<photon_candidate> candidates;
+
+        if (use_k_nearest_gather) {
+            if (!select_k_nearest_candidates(rec, candidates, radius))
+                return color(0, 0, 0);
+        } else {
+            if (use_adaptive_gather) {
+                if (!choose_adaptive_radius(rec, radius))
+                    return color(0, 0, 0);
+            }
+
+            collect_photon_candidates(rec, radius, candidates);
+
+            if (candidates.empty())
+                return color(0, 0, 0);
+        }
+
+        color rgb_flux(0, 0, 0);
+
+        for (const auto& candidate : candidates) {
+            accumulate_photon_rgb(candidate, rec, r_in, radius, rgb_flux);
+        }
+
+        // Integral of kernel w(r)=1-r/R over a disk is πR²/3.
+        const double kernel_area = pi * radius * radius / 3.0;
+        color result = caustic_strength * (rgb_flux / kernel_area);
+
+        return nonnegative_color(result);
+    }
+
     void write_ply(const std::string& filename, double color_scale = 1.0) const {
         std::ofstream out(filename);
 
@@ -338,6 +376,14 @@ class photon_map {
 
     bool has_valid_grid() const {
         return use_spatial_grid && grid_built && effective_cell_size > 0.0;
+    }
+
+    color nonnegative_color(const color& c) const {
+        return color(
+            std::fmax(0.0, c.x()),
+            std::fmax(0.0, c.y()),
+            std::fmax(0.0, c.z())
+        );
     }
 
     bool photon_spatially_valid(
@@ -486,10 +532,60 @@ class photon_map {
         }
     }
 
+    void accumulate_photon_rgb(
+        const photon_candidate& candidate,
+        const hit_record& rec,
+        const ray& r_in,
+        double radius,
+        color& rgb_flux
+    ) const {
+        const spectral_photon& photon = photons[candidate.photon_index];
+
+        vec3 delta = photon.position - rec.p;
+        double dist2 = delta.length_squared();
+        double radius2 = radius * radius;
+
+        if (dist2 > radius2)
+            return;
+
+        if (dot(photon.normal, rec.normal) <= 0.1)
+            return;
+
+        double dist = std::sqrt(dist2);
+        double spatial_weight = 1.0 - dist / radius;
+
+        if (spatial_weight <= 0.0)
+            return;
+
+        // Use the photon wavelengths, not the camera ray wavelengths.
+        // This makes the caustic color come from the photon cloud itself.
+        SpectralEnergy brdf = rec.mat->photon_gather_brdf(r_in, rec, photon.wavelengths);
+        SpectralEnergy reflected = photon.power * brdf * spatial_weight;
+
+        rgb_flux += spectral_to_rgb(reflected, photon.wavelengths);
+    }
+
     bool gather_k_nearest(
         const hit_record& rec,
         const ray& r_in,
         SpectralEnergy& flux,
+        double& estimate_radius
+    ) const {
+        std::vector<photon_candidate> candidates;
+
+        if (!select_k_nearest_candidates(rec, candidates, estimate_radius))
+            return false;
+
+        for (const auto& candidate : candidates) {
+            accumulate_photon(photons[candidate.photon_index], rec, r_in, estimate_radius, flux);
+        }
+
+        return true;
+    }
+
+    bool select_k_nearest_candidates(
+        const hit_record& rec,
+        std::vector<photon_candidate>& candidates,
         double& estimate_radius
     ) const {
         if (k_nearest_photon_count <= 0)
@@ -497,8 +593,6 @@ class photon_map {
 
         double radius = gather_radius;
         double max_radius = std::max(k_nearest_max_radius, gather_radius);
-
-        std::vector<photon_candidate> candidates;
 
         while (radius <= max_radius) {
             candidates.clear();
@@ -550,10 +644,6 @@ class photon_map {
 
         // Avoid placing the farthest selected photon exactly on a zero-weight boundary.
         estimate_radius *= 1.0001;
-
-        for (const auto& candidate : candidates) {
-            accumulate_photon(photons[candidate.photon_index], rec, r_in, estimate_radius, flux);
-        }
 
         return true;
     }
