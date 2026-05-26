@@ -28,6 +28,7 @@ int main() {
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
     auto glass = make_shared<dielectric>(1.7, 0.015);
+    auto glass2 = make_shared<dielectric>(1.5, 0.015);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
     auto checker_mat = make_shared<lambertian>(checker_tex);
     auto wave_tex = make_shared<wave_texture>(25.0,color(.85, .85, .85),color(.10, .10, .10));
@@ -58,13 +59,13 @@ int main() {
       world.add(box1);
 
       // Glass Sphere
-      // world.add(make_shared<sphere>(point3(190,90,190), 90, glass));
+      world.add(make_shared<sphere>(point3(190,150,190), 100, glass2));
 
       // Box 2
-      shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
-      box2 = make_shared<rotate_y>(box2, -18);
-      box2 = make_shared<translate>(box2, vec3(130,10,65));
-      world.add(box2);
+      // shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
+      // box2 = make_shared<rotate_y>(box2, -18);
+      // box2 = make_shared<translate>(box2, vec3(130,10,65));
+      // world.add(box2);
 
       cam.vfov     = 40;
       cam.lookfrom = point3(278, 278, -800);
@@ -99,7 +100,7 @@ int main() {
       break;
     }
     case 3: { // dispersion prism to ground
-      auto glass2 = make_shared<dielectric>(1.5, 0.015);
+      auto glass2 = make_shared<dielectric>(1.4, 0.5);
       world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
       world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
@@ -130,7 +131,7 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 600;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 5000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
@@ -145,7 +146,7 @@ int main() {
     caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
-    caustic_map.gather_radius = 4.0;
+    caustic_map.gather_radius = 2.0;
     caustic_map.max_gather_radius = 18.0;
     caustic_map.min_photons_per_gather = 30;
     caustic_map.adaptive_radius_growth = 1.5;
@@ -158,7 +159,7 @@ int main() {
     caustic_map.use_adaptive_gather = true;
 
     caustic_map.use_k_nearest_gather = true;
-    caustic_map.k_nearest_photon_count = 50;
+    caustic_map.k_nearest_photon_count = 300;
     caustic_map.k_nearest_max_radius = 18.0;
     caustic_map.k_nearest_radius_growth = 1.5;
     caustic_map.k_nearest_require_full_count = true;
