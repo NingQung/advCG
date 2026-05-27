@@ -211,6 +211,27 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
+    double average_active_energy(
+        const SpectralEnergy& energy,
+        const Wavelengths& wavelengths
+    ) const {
+        double sum = 0.0;
+        int count = 0;
+
+        for (int i = 0; i < WL_PER_RAY; ++i) {
+            if (wavelengths.hero_only && i != 0)
+                continue;
+
+            sum += std::fmax(0.0, energy.energy[i]);
+            count++;
+        }
+
+        if (count <= 0)
+            return 0.0;
+
+        return sum / count;
+    }
+
     struct sample_result {
         SpectralEnergy spectral;
         color photon_rgb_caustic;
@@ -293,8 +314,8 @@ class camera {
             // Convert specular attenuation on this camera path to RGB and apply it
             // to the RGB caustic side-channel. This keeps camera-through-glass
             // caustics from ignoring the glass path.
-            color attenuation_rgb = spectral_to_rgb(srec.attenuation, r.wavelengths());
-            result.photon_rgb_caustic = attenuation_rgb * child.photon_rgb_caustic;
+            double attenuation_scalar = average_active_energy(srec.attenuation, r.wavelengths());
+            result.photon_rgb_caustic = attenuation_scalar * child.photon_rgb_caustic;
 
             return result;
         }

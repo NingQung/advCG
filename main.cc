@@ -131,13 +131,13 @@ int main() {
     }
 
     cam.aspect_ratio      = 1.0;
-    cam.image_width       = 600;
-    cam.samples_per_pixel = 5000;
+    cam.image_width       = 300;
+    cam.samples_per_pixel = 1000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
 
-    cam.debug_only_photon_render = false;
+    cam.debug_only_photon_render = true;
     cam.use_photon_rgb_caustic = true;
     cam.use_parallel_render = true;
     cam.thread_count = 8; // auto
@@ -155,13 +155,13 @@ int main() {
 
     caustic_map.grid_cell_size = 6.0;
     caustic_map.spectral_radius_nm = 40.0;
-    caustic_map.caustic_strength = 2.0;
+    caustic_map.caustic_strength = 0.25;
 
     caustic_map.use_spatial_grid = true;
     caustic_map.use_adaptive_gather = true;
 
     caustic_map.use_k_nearest_gather = true;
-    caustic_map.k_nearest_photon_count = 300;
+    caustic_map.k_nearest_photon_count = 400;
     caustic_map.k_nearest_max_radius = 18.0;
     caustic_map.k_nearest_radius_growth = 1.5;
     caustic_map.k_nearest_require_full_count = true;
