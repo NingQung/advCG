@@ -1,0 +1,4 @@
+時間_目前大進度_spp_totalPhoton_gatherRad_gatherCount_sec_pc?
+die 唯一玻璃的A_B
+
+260526-2208_photon_pass_5000_500000p_2.0r_3027s
