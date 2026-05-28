@@ -27,8 +27,8 @@ int main() {
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
-    auto glass = make_shared<dielectric>(1.7, 0.15);
-    auto glass2 = make_shared<dielectric>(1.5, 0.15);
+    auto glass = make_shared<dielectric>(1.5, 0.15);
+    auto glass2 = make_shared<dielectric>(1.5, 0.6);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
     auto checker_mat = make_shared<lambertian>(checker_tex);
     auto wave_tex = make_shared<wave_texture>(25.0,color(.85, .85, .85),color(.10, .10, .10));
@@ -41,8 +41,8 @@ int main() {
     switch (1) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
-      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
-      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
+      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), white)); //left
+      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), white)); //right
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
@@ -53,14 +53,14 @@ int main() {
       lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
       emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(10.0, 10.0, 10.0));
       // Box 1
-      shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
+      shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), glass2);
       box1 = make_shared<rotate_y>(box1, 15);
-      box1 = make_shared<translate>(box1, vec3(265,0,295));
+      box1 = make_shared<translate>(box1, vec3(265,40,295));
       world.add(box1);
 
       // Glass Sphere
-      world.add(make_shared<sphere>(point3(190,150,190), 100, glass2));
-      world.add(make_shared<sphere>(point3(190,150,190), 50, glass));
+      world.add(make_shared<sphere>(point3(190,150,190), 100, glass));
+      // world.add(make_shared<sphere>(point3(190,150,190), 50, glass));
 
       // Box 2
       // shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
@@ -132,15 +132,14 @@ int main() {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 300;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 4000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
 
-    cam.debug_only_photon_render = true;
     cam.use_photon_rgb_caustic = true;
     cam.use_parallel_render = true;
-    cam.thread_count = 8; // auto
+    cam.thread_count = 4; // auto
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -161,11 +160,12 @@ int main() {
     caustic_map.use_adaptive_gather = true;
 
     caustic_map.use_k_nearest_gather = true;
-    caustic_map.k_nearest_photon_count = 400;
+    caustic_map.k_nearest_photon_count = 50;
     caustic_map.k_nearest_max_radius = 18.0;
     caustic_map.k_nearest_radius_growth = 1.5;
     caustic_map.k_nearest_require_full_count = true;
 
+    cam.debug_only_photon_render = false;
     caustic_map.debug_write_ply = false;
     caustic_map.debug_ply_filename = "caustic_photons.ply";
     caustic_map.debug_ply_color_scale = 50000.0;
