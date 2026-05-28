@@ -2,5 +2,3 @@ main
 *.ppm
 .vscode
 *.ply
-*.obj
-*.mtl

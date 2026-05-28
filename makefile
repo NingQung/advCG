@@ -9,4 +9,4 @@ spr:
 out1:
 	./main > image3.ppm
 out2:
-	./main test1.obj 100 278 100 278 > image3.ppm
+	./main test2.obj 100 278 100 278 > image3.ppm

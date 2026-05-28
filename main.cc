@@ -70,19 +70,36 @@ int main(int argc, char** argv) {
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
       // Light
-      auto light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
-      world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
-      lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
-      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(10.0, 10.0, 10.0));
+      auto light = make_shared<diffuse_light>(color(1000.0, 1000.0, 1000.0));
+      world.add(make_shared<quad>(
+          point3(265, 554, 268.5),
+          vec3(26, 0, 0),
+          vec3(0, 0, 21),
+          light
+      ));
+
+      lights.add(make_shared<quad>(
+          point3(265, 554, 268.5),
+          vec3(26, 0, 0),
+          vec3(0, 0, 21),
+          light
+      ));
+
+      emitters.add_quad(
+          point3(265, 554, 268.5),
+          vec3(26, 0, 0),
+          vec3(0, 0, 21),
+          color(1000.0, 1000.0, 1000.0)
+      );
       // Box 1
-      shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
-      box1 = make_shared<rotate_y>(box1, 15);
-      box1 = make_shared<translate>(box1, vec3(265,0,295));
-      world.add(box1);
+      // shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
+      // box1 = make_shared<rotate_y>(box1, 15);
+      // box1 = make_shared<translate>(box1, vec3(265,0,295));
+      // world.add(box1);
 
       // Glass Sphere
-      world.add(make_shared<sphere>(point3(190,150,190), 100, glass2));
-      world.add(make_shared<sphere>(point3(190,150,190), 50, glass));
+      // world.add(make_shared<sphere>(point3(190,130,190), 100, glass2));
+      // world.add(make_shared<sphere>(point3(265,60,295), 50, glass));
 
       // Box 2
       // shared_ptr<hittable> box2 = box(point3(0,0,0), point3(165,165,165), glass);
@@ -155,8 +172,8 @@ int main(int argc, char** argv) {
         obj_load_options obj_options;
         obj_options.scale = obj_scale;
         obj_options.offset = obj_offset;
-        obj_options.default_material = white;
-        obj_options.use_mtl_materials = true;
+        obj_options.use_mtl_materials = false;
+        obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
         obj_options.use_bvh = true;
 
         obj_load_result obj_result = load_obj_model(obj_path, obj_options);
@@ -176,7 +193,7 @@ int main(int argc, char** argv) {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 300;
-    cam.samples_per_pixel = 10000;
+    cam.samples_per_pixel = 1000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
@@ -192,7 +209,7 @@ int main(int argc, char** argv) {
     caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
-    caustic_map.gather_radius = 4.0;
+    caustic_map.gather_radius = 2.0;
     caustic_map.max_gather_radius = 18.0;
     caustic_map.min_photons_per_gather = 30;
     caustic_map.adaptive_radius_growth = 1.5;
