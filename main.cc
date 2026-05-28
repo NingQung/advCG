@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
     auto start = std::chrono::high_resolution_clock::now();
 
     photon_map caustic_map;
-    caustic_map.photon_count = 5000000;
+    caustic_map.photon_count = 500000;
     caustic_map.max_depth = 20;
 
     caustic_map.gather_radius = 2.0;

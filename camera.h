@@ -234,6 +234,33 @@ class camera {
         return sum / count;
     }
 
+    SpectralEnergy clamp_spectral_average(
+        const SpectralEnergy& e,
+        const Wavelengths& wl,
+        double max_average
+    ) const {
+        double sum = 0.0;
+        int count = 0;
+
+        for (int k = 0; k < WL_PER_RAY; ++k) {
+            if (wl.hero_only && k != 0)
+                continue;
+
+            sum += std::fmax(0.0, e.energy[k]);
+            count++;
+        }
+
+        if (count <= 0)
+            return e;
+
+        double avg = sum / count;
+
+        if (avg <= max_average)
+            return e;
+
+        return e * (max_average / avg);
+    }
+
     struct sample_result {
         SpectralEnergy spectral;
         color photon_rgb_caustic;
@@ -280,7 +307,8 @@ class camera {
         const hittable& world,
         const hittable& lights,
         const photon_map& caustic_map,
-        bool allow_caustic_gather = true
+        bool allow_caustic_gather = true,
+        bool after_delta_bounce = false
     ) const {
         sample_result result;
 
@@ -296,7 +324,10 @@ class camera {
         SpectralEnergy color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
 
         if (!rec.mat->scatter(r, rec, srec)) {
-            result.spectral = color_from_emission;
+            result.spectral = after_delta_bounce
+                ? clamp_spectral_average(color_from_emission, r.wavelengths(), 20.0)
+                : color_from_emission;
+
             return result;
         }
 
@@ -308,7 +339,8 @@ class camera {
                     world,
                     lights,
                     caustic_map,
-                    allow_caustic_gather
+                    allow_caustic_gather,
+                    true
                 );
 
             result.spectral = srec.attenuation * child.spectral;
@@ -363,6 +395,7 @@ class camera {
                 world,
                 lights,
                 caustic_map,
+                false,
                 false
             );
 
