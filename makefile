@@ -6,4 +6,7 @@ rtw3:
 	./main > image2.ppm
 spr:
 	g++ -std=c++17 main.cc external/rgb2spec.cpp -O3 -pthread -o main
+out1:
 	./main > image3.ppm
+out2:
+	./main test1.obj 100 278 100 278 > image3.ppm

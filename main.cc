@@ -9,10 +9,12 @@
 #include "sphere.h"
 #include "triangle.h"
 #include "photon_map.h"
+#include "obj_loader.h"
+#include "obj_loader.cpp"
 #include "external/rgb2spec.h"
 RGB2Spec *g_rgb2spec_model = nullptr;
 
-int main() {
+int main(int argc, char** argv) {
     g_rgb2spec_model = rgb2spec_load("external/jakob-and-hanika-2019-srgb.coeff");
     if (!g_rgb2spec_model) {
         std::cerr << "Failed to load rgb2spec model!\n";
@@ -38,11 +40,31 @@ int main() {
     camera cam;
     light_emitter_list emitters;
 
+    std::string obj_path = "";
+    double obj_scale = 100.0;
+    vec3 obj_offset = vec3(278, 0, 278);
+
+    if (argc >= 2) {
+        obj_path = argv[1];
+    }
+
+    if (argc >= 3) {
+        obj_scale = std::atof(argv[2]);
+    }
+
+    if (argc >= 6) {
+        obj_offset = vec3(
+            std::atof(argv[3]),
+            std::atof(argv[4]),
+            std::atof(argv[5])
+        );
+    }
+
     switch (1) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
-      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
-      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
+      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), white)); //left
+      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), white)); //right
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
@@ -129,15 +151,37 @@ int main() {
     default:
       break;
     }
+    if (!obj_path.empty()) {
+        obj_load_options obj_options;
+        obj_options.scale = obj_scale;
+        obj_options.offset = obj_offset;
+        obj_options.default_material = white;
+        obj_options.use_mtl_materials = true;
+        obj_options.use_bvh = true;
+
+        obj_load_result obj_result = load_obj_model(obj_path, obj_options);
+
+        if (!obj_result.error.empty()) {
+            std::cerr << "Failed to load OBJ: " << obj_result.error << "\n";
+
+            if (!obj_result.warning.empty())
+                std::cerr << "OBJ warning:\n" << obj_result.warning << "\n";
+
+            rgb2spec_free(g_rgb2spec_model);
+            return -1;
+        }
+
+        world.add(obj_result.object);
+    }
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 300;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 10000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
 
-    cam.debug_only_photon_render = true;
+    cam.debug_only_photon_render = false;
     cam.use_photon_rgb_caustic = true;
     cam.use_parallel_render = true;
     cam.thread_count = 8; // auto

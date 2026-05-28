@@ -3,6 +3,8 @@
 
 #include "rtweekend.h"
 #include "hittable.h"
+#include "hittable_list.h"
+#include "quad.h"
 
 class triangle : public hittable {
   public:
