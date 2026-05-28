@@ -170,6 +170,8 @@ class camera {
         auto defocus_radius = focus_dist * std::tan(degrees_to_radians(defocus_angle / 2));
         defocus_disk_u = u * defocus_radius;
         defocus_disk_v = v * defocus_radius;
+
+        if(debug_only_photon_render) std::clog << "\r\033[41mDEBUG: PHOTON ONLY.\033[0m\n";
     }
 
     ray get_ray(int i, int j, int s_i, int s_j) const {

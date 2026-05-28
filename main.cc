@@ -69,28 +69,17 @@ int main(int argc, char** argv) {
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
-      // Light
+      // Small Light 
       auto light = make_shared<diffuse_light>(color(1000.0, 1000.0, 1000.0));
-      world.add(make_shared<quad>(
-          point3(265, 554, 268.5),
-          vec3(26, 0, 0),
-          vec3(0, 0, 21),
-          light
-      ));
+      world.add(make_shared<quad>(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), light));
+      lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
+      emitters.add_quad(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), color(1000.0, 1000.0, 1000.0));
+      // Big Light
+      // auto light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
+      // world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
+      // lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
+      // emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(10.0, 10.0, 10.0));
 
-      lights.add(make_shared<quad>(
-          point3(265, 554, 268.5),
-          vec3(26, 0, 0),
-          vec3(0, 0, 21),
-          light
-      ));
-
-      emitters.add_quad(
-          point3(265, 554, 268.5),
-          vec3(26, 0, 0),
-          vec3(0, 0, 21),
-          color(1000.0, 1000.0, 1000.0)
-      );
       // Box 1
       // shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
       // box1 = make_shared<rotate_y>(box1, 15);
