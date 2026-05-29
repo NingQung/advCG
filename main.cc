@@ -29,8 +29,6 @@ int main(int argc, char** argv) {
     auto yellow = make_shared<lambertian>(color(.70, .70, .05));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
-    auto glass = make_shared<dielectric>(1.7, 0.15);
-    auto glass2 = make_shared<dielectric>(1.5, 0.15);
     auto checker_tex = make_shared<checker_texture>(40.0,color(.85, .85, .85),color(.10, .10, .10));
     auto checker_mat = make_shared<lambertian>(checker_tex);
     auto wave_tex = make_shared<wave_texture>(25.0,color(.85, .85, .85),color(.10, .10, .10));
@@ -60,25 +58,22 @@ int main(int argc, char** argv) {
         );
     }
 
-    switch (1) {
+    switch (3) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
+      auto glass = make_shared<dielectric>(1.7, 0.15);
+      auto glass2 = make_shared<dielectric>(1.5, 0.15);
       world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), white)); //left
       world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), white)); //right
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
-      // Small Light 
-      auto light = make_shared<diffuse_light>(color(1000.0, 1000.0, 1000.0));
-      world.add(make_shared<quad>(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), light));
-      lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
-      emitters.add_quad(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), color(1000.0, 1000.0, 1000.0));
       // Big Light
-      // auto light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
-      // world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
-      // lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
-      // emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(10.0, 10.0, 10.0));
+      auto light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
+      world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
+      lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
+      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(10.0, 10.0, 10.0));
 
       // Box 1
       // shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
@@ -103,6 +98,7 @@ int main(int argc, char** argv) {
       break;
     }
     case 2: { // Cornell box + glass prism to look back dispersion
+      auto glass = make_shared<dielectric>(1.7, 0.15);
       // Cornell box sides
       world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
       world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
@@ -135,8 +131,8 @@ int main(int argc, char** argv) {
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
-      world.add(make_shared<quad>(point3(0,278,270), vec3(555,0,0), vec3(0,0,-275), white)); //front-blocker
-      world.add(make_shared<quad>(point3(0,278,560), vec3(555,0,0), vec3(0,0,-283), white)); //back-blocker
+      // world.add(make_shared<quad>(point3(0,300,270), vec3(555,0,0), vec3(0,0,-275), white)); //front-blocker
+      // world.add(make_shared<quad>(point3(0,300,560), vec3(555,0,0), vec3(0,0,-283), white)); //back-blocker
 
       auto light = make_shared<diffuse_light>(color(60.0, 60.0, 60.0));
       world.add(make_shared<quad>(point3(0,554,280), vec3(0,0,-15), vec3(555,0,0), light));
@@ -147,6 +143,28 @@ int main(int argc, char** argv) {
       prism1 = make_shared<rotate_x>(prism1, -60);
       prism1 = make_shared<translate>(prism1, vec3(75,25,250));
       world.add(prism1);
+
+      cam.vfov     = 40;
+      cam.lookfrom = point3(278, 278, -800);
+      cam.lookat   = point3(278, 278, 0);
+      cam.vup      = vec3(0, 1, 0);
+      break;
+    }
+    case 4: { // input OBJ
+      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), white)); //left
+      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), white)); //right
+      world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
+      world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
+      world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
+
+      // Small Light 
+      auto light = make_shared<diffuse_light>(color(1000.0, 1000.0, 1000.0));
+      world.add(make_shared<quad>(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), light));
+      lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
+      emitters.add_quad(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), color(1000.0, 1000.0, 1000.0));
+
+      // input OBJ
+      // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
 
       cam.vfov     = 40;
       cam.lookfrom = point3(278, 278, -800);
@@ -195,7 +213,7 @@ int main(int argc, char** argv) {
     auto start = std::chrono::high_resolution_clock::now();
 
     photon_map caustic_map;
-    caustic_map.photon_count = 500000;
+    caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
     caustic_map.gather_radius = 2.0;
