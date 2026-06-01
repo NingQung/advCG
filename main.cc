@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
       world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
-      world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
+      world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), white)); //back
       // world.add(make_shared<quad>(point3(0,300,270), vec3(555,0,0), vec3(0,0,-275), white)); //front-blocker
       // world.add(make_shared<quad>(point3(0,300,560), vec3(555,0,0), vec3(0,0,-283), white)); //back-blocker
 
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
       prism1 = make_shared<rotate_x>(prism1, -60);
       prism1 = make_shared<translate>(prism1, vec3(75,25,250));
       world.add(prism1);
-      emitters.set_target_sphere(point3(75, 25, 250), 260.0);
+      emitters.set_target_sphere(point3(275, 25, 250), 200.0);
 
       cam.vfov     = 40;
       cam.lookfrom = point3(278, 278, -800);
@@ -230,7 +230,7 @@ int main(int argc, char** argv) {
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
 
-    cam.debug_only_photon_render = true;
+    cam.debug_only_photon_render = false;
     cam.use_photon_rgb_caustic = true;
     cam.use_parallel_render = true;
     cam.thread_count = 8; // auto
