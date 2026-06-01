@@ -34,6 +34,11 @@ class camera {
     // <= 0 means use std::thread::hardware_concurrency().
     int thread_count = 0;
 
+    bool use_russian_roulette = true;
+    int russian_roulette_start_bounce = 5;
+    double russian_roulette_min_probability = 0.05;
+    double russian_roulette_max_probability = 0.95;
+
     void render(const hittable& world, const hittable& lights) {
         photon_map empty_caustic_map;
         render(world, lights, empty_caustic_map);
@@ -234,6 +239,36 @@ class camera {
         return sum / count;
     }
 
+    double clamp_probability(double x) const {
+        if (x < russian_roulette_min_probability)
+            return russian_roulette_min_probability;
+
+        if (x > russian_roulette_max_probability)
+            return russian_roulette_max_probability;
+
+        return x;
+    }
+
+    bool should_apply_russian_roulette(int depth) const {
+        if (!use_russian_roulette)
+            return false;
+
+        int bounce = max_depth - depth;
+        return bounce >= russian_roulette_start_bounce;
+    }
+
+    double russian_roulette_probability(
+        const SpectralEnergy& attenuation,
+        const Wavelengths& wavelengths
+    ) const {
+        double p = average_active_energy(attenuation, wavelengths);
+
+        if (p <= 0.0)
+            return 0.0;
+
+        return clamp_probability(p);
+    }
+
     SpectralEnergy clamp_spectral_average(
         const SpectralEnergy& e,
         const Wavelengths& wl,
@@ -332,6 +367,15 @@ class camera {
         }
 
         if (srec.skip_pdf) {
+            double rr_probability = 1.0;
+
+            if (should_apply_russian_roulette(depth)) {
+                rr_probability = russian_roulette_probability(srec.attenuation, r.wavelengths());
+
+                if (rr_probability <= 0.0 || random_double() > rr_probability)
+                    return result;
+            }
+
             sample_result child =
                 ray_color_with_rgb_caustic(
                     srec.skip_pdf_ray,
@@ -343,13 +387,13 @@ class camera {
                     true
                 );
 
-            result.spectral = srec.attenuation * child.spectral;
+            result.spectral = (srec.attenuation * child.spectral) / rr_probability;
 
-            // Convert specular attenuation on this camera path to RGB and apply it
-            // to the RGB caustic side-channel. This keeps camera-through-glass
-            // caustics from ignoring the glass path.
+            // RGB caustic side-channel must not be filtered by camera sampled wavelengths.
+            // Use only a scalar attenuation to avoid reintroducing random wavelength color noise.
             double attenuation_scalar = average_active_energy(srec.attenuation, r.wavelengths());
-            result.photon_rgb_caustic = attenuation_scalar * child.photon_rgb_caustic;
+            result.photon_rgb_caustic =
+                (attenuation_scalar * child.photon_rgb_caustic) / rr_probability;
 
             return result;
         }
@@ -388,6 +432,18 @@ class camera {
                 rec.mat->scattering_pdf(r, rec, scattered, r.wavelengths().lambda[k]);
         }
 
+        double rr_probability = 1.0;
+
+        if (should_apply_russian_roulette(depth)) {
+            rr_probability = russian_roulette_probability(srec.attenuation, r.wavelengths());
+
+            if (rr_probability <= 0.0 || random_double() > rr_probability) {
+                result.spectral = color_from_emission;
+                result.photon_rgb_caustic = color_from_caustic;
+                return result;
+            }
+        }
+
         sample_result child =
             ray_color_with_rgb_caustic(
                 scattered,
@@ -401,7 +457,7 @@ class camera {
 
         result.spectral =
             color_from_emission +
-            (srec.attenuation * scattering_pdf * child.spectral) / pdf_value;
+            (srec.attenuation * scattering_pdf * child.spectral) / (pdf_value * rr_probability);
 
         result.photon_rgb_caustic = color_from_caustic;
 
@@ -424,7 +480,18 @@ class camera {
             return color_from_emission;
 
         if (srec.skip_pdf) {
-            return srec.attenuation * ray_color(srec.skip_pdf_ray, depth - 1, world, lights, caustic_map, allow_caustic_gather);
+            double rr_probability = 1.0;
+
+            if (should_apply_russian_roulette(depth)) {
+                rr_probability = russian_roulette_probability(srec.attenuation, r.wavelengths());
+
+                if (rr_probability <= 0.0 || random_double() > rr_probability)
+                    return SpectralEnergy(0.0);
+            }
+
+            return (srec.attenuation *
+                ray_color(srec.skip_pdf_ray, depth - 1, world, lights, caustic_map, allow_caustic_gather))
+                / rr_probability;
         }
 
         SpectralEnergy color_from_caustic = allow_caustic_gather ? 
@@ -455,10 +522,22 @@ class camera {
                 rec.mat->scattering_pdf(r, rec, scattered, r.wavelengths().lambda[k]);
         }
 
-        SpectralEnergy sample_color = ray_color(scattered, depth - 1, world, lights, caustic_map, false);
-        SpectralEnergy color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
+        double rr_probability = 1.0;
 
-        return color_from_emission + color_from_caustic + color_from_scatter;
+        if (should_apply_russian_roulette(depth)) {
+            rr_probability = russian_roulette_probability(srec.attenuation, r.wavelengths());
+
+            if (rr_probability <= 0.0 || random_double() > rr_probability)
+                return color_from_emission + color_from_caustic;
+        }
+
+        SpectralEnergy sample_color =
+            ray_color(scattered, depth - 1, world, lights, caustic_map, false);
+
+        SpectralEnergy color_from_scatter =
+            (srec.attenuation * scattering_pdf * sample_color) / (pdf_value * rr_probability);
+
+return color_from_emission + color_from_caustic + color_from_scatter;
 
     }
 };

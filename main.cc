@@ -143,6 +143,7 @@ int main(int argc, char** argv) {
       prism1 = make_shared<rotate_x>(prism1, -60);
       prism1 = make_shared<translate>(prism1, vec3(75,25,250));
       world.add(prism1);
+      emitters.set_target_sphere(point3(75, 25, 250), 260.0);
 
       cam.vfov     = 40;
       cam.lookfrom = point3(278, 278, -800);
@@ -160,7 +161,7 @@ int main(int argc, char** argv) {
       // Small Light 
       auto light = make_shared<diffuse_light>(color(1000.0, 1000.0, 1000.0));
       world.add(make_shared<quad>(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), light));
-      lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
+      lights.add(make_shared<quad>(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), light));
       emitters.add_quad(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), color(1000.0, 1000.0, 1000.0));
 
       // input OBJ
@@ -196,6 +197,31 @@ int main(int argc, char** argv) {
         }
 
         world.add(obj_result.object);
+
+        aabb obj_box = obj_result.object->bounding_box();
+
+        point3 target_center(
+            0.5 * (obj_box.x.min + obj_box.x.max),
+            0.5 * (obj_box.y.min + obj_box.y.max),
+            0.5 * (obj_box.z.min + obj_box.z.max)
+        );
+
+        vec3 target_extent(
+            obj_box.x.size(),
+            obj_box.y.size(),
+            obj_box.z.size()
+        );
+
+        double target_radius = 0.5 * target_extent.length();
+
+        // Add a small safety margin so the whole caustic caster is inside the target sphere.
+        target_radius *= 1.15;
+
+        emitters.set_target_sphere(target_center, target_radius);
+
+        std::clog << "Photon target sphere: center = "
+                  << target_center
+                  << ", radius = " << target_radius << "\n";
     }
 
     cam.aspect_ratio      = 1.0;
@@ -210,6 +236,11 @@ int main(int argc, char** argv) {
     cam.use_parallel_render = true;
     cam.thread_count = 8; // auto
 
+    cam.use_russian_roulette = true;
+    cam.russian_roulette_start_bounce = 5;
+    cam.russian_roulette_min_probability = 0.05;
+    cam.russian_roulette_max_probability = 0.95;
+
     auto start = std::chrono::high_resolution_clock::now();
 
     photon_map caustic_map;
@@ -223,7 +254,8 @@ int main(int argc, char** argv) {
 
     caustic_map.grid_cell_size = 6.0;
     caustic_map.spectral_radius_nm = 40.0;
-    caustic_map.caustic_strength = 0.25;
+    caustic_map.caustic_strength = 1.0;
+    caustic_map.rgb_caustic_strength = 0.25;
 
     caustic_map.use_spatial_grid = true;
     caustic_map.use_adaptive_gather = true;
