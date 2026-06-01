@@ -98,24 +98,23 @@ int main(int argc, char** argv) {
       break;
     }
     case 2: { // Cornell box + glass prism to look back dispersion
-      auto glass = make_shared<dielectric>(1.7, 0.15);
+      auto glass = make_shared<dielectric>(1.7, 0.015);
       // Cornell box sides
-      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green));
-      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red));
+      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), white)); //left
+      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), white)); //right
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
 
       // Light
-      auto light = make_shared<diffuse_light>(color(60.0, 60.0, 60.0));
+      auto light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
       world.add(make_shared<quad>(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), light));
       lights.add(make_shared<quad>(point3(343,554,332), vec3(-130,0,0), vec3(0,0,-105), light));
-      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(60.0, 60.0, 60.0));
+      emitters.add_quad(point3(148,554,174), vec3(260,0,0), vec3(0,0,210), color(10.0, 10.0, 10.0));
 
       // prism
       shared_ptr<hittable> prism1 = prism(point3(0,0,0), point3(-150,0,180), point3(150,0,180), 400.0, glass);
-      prism1 = make_shared<rotate_x>(prism1, 15);
-      prism1 = make_shared<translate>(prism1, vec3(275,5,75));
+      prism1 = make_shared<translate>(prism1, vec3(275,10,75));
       world.add(prism1);
 
       cam.vfov     = 40;
@@ -231,7 +230,7 @@ int main(int argc, char** argv) {
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
 
-    cam.debug_only_photon_render = false;
+    cam.debug_only_photon_render = true;
     cam.use_photon_rgb_caustic = true;
     cam.use_parallel_render = true;
     cam.thread_count = 8; // auto
