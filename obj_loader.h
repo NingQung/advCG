@@ -20,6 +20,9 @@ struct obj_load_options {
     // Wrap the triangle list in a BVH.
     bool use_bvh = true;
 
+    // Use OBJ vertex normals when vn exists.
+    bool use_vertex_normals = true;
+
     // Used when the OBJ has no material or material loading fails.
     shared_ptr<material> default_material = nullptr;
 };

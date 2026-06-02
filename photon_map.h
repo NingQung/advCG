@@ -700,7 +700,7 @@ class photon_map {
             if (radius >= max_radius)
                 break;
 
-            radius = std::min(radius * k_nearest_radius_growth, max_radius);
+            radius = std::min(radius + k_nearest_radius_growth, max_radius);
         }
 
         if (candidates.empty())

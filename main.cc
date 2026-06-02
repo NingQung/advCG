@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         );
     }
 
-    switch (3) {
+    switch (4) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
       auto glass = make_shared<dielectric>(1.7, 0.15);
@@ -167,8 +167,24 @@ int main(int argc, char** argv) {
       // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
 
       cam.vfov     = 40;
-      cam.lookfrom = point3(278, 278, -800);
+      cam.lookfrom = point3(278, 555, -400);
       cam.lookat   = point3(278, 278, 0);
+      cam.vup      = vec3(0, 1, 0);
+      break;
+    }
+    case 5: { // input final scene
+      world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
+
+      auto light = make_shared<diffuse_light>(color(1000.0, 1000.0, 1000.0));
+      world.add(make_shared<quad>(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), light));
+      lights.add(make_shared<quad>(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), light));
+      emitters.add_quad(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), color(1000.0, 1000.0, 1000.0));
+      // input OBJ
+      // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
+
+      cam.vfov     = 40;
+      cam.lookfrom = point3(0, 400, -800);
+      cam.lookat   = point3(0, 0, 0);
       cam.vup      = vec3(0, 1, 0);
       break;
     }
@@ -182,6 +198,7 @@ int main(int argc, char** argv) {
         obj_options.use_mtl_materials = false;
         obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
         obj_options.use_bvh = true;
+        obj_options.use_vertex_normals = true;
 
         obj_load_result obj_result = load_obj_model(obj_path, obj_options);
 
@@ -216,7 +233,7 @@ int main(int argc, char** argv) {
         // Add a small safety margin so the whole caustic caster is inside the target sphere.
         target_radius *= 1.15;
 
-        emitters.set_target_sphere(target_center, target_radius);
+        //emitters.set_target_sphere(target_center, target_radius);
 
         std::clog << "Photon target sphere: center = "
                   << target_center
@@ -246,8 +263,8 @@ int main(int argc, char** argv) {
     caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
-    caustic_map.gather_radius = 2.0;
-    caustic_map.max_gather_radius = 18.0;
+    caustic_map.gather_radius = 1.0;
+    caustic_map.max_gather_radius = 5.0;
     caustic_map.min_photons_per_gather = 30;
     caustic_map.adaptive_radius_growth = 1.5;
 
@@ -260,9 +277,9 @@ int main(int argc, char** argv) {
     caustic_map.use_adaptive_gather = true;
 
     caustic_map.use_k_nearest_gather = true;
-    caustic_map.k_nearest_photon_count = 400;
+    caustic_map.k_nearest_photon_count = 800;
     caustic_map.k_nearest_max_radius = 18.0;
-    caustic_map.k_nearest_radius_growth = 1.5;
+    caustic_map.k_nearest_radius_growth = 1.0;
     caustic_map.k_nearest_require_full_count = true;
 
     caustic_map.debug_write_ply = false;

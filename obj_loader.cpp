@@ -62,6 +62,36 @@ point3 read_vertex(
     );
 }
 
+vec3 read_normal(
+    const tinyobj::attrib_t& attrib,
+    int normal_index
+) {
+    const int base = 3 * normal_index;
+
+    double x = static_cast<double>(attrib.normals[base + 0]);
+    double y = static_cast<double>(attrib.normals[base + 1]);
+    double z = static_cast<double>(attrib.normals[base + 2]);
+
+    vec3 n(x, y, z);
+
+    if (n.near_zero())
+        return vec3(0, 1, 0);
+
+    return unit_vector(n);
+}
+
+bool has_valid_normal(
+    const tinyobj::attrib_t& attrib,
+    const tinyobj::index_t& index
+) {
+    if (index.normal_index < 0)
+        return false;
+
+    int base = 3 * index.normal_index;
+
+    return base + 2 < int(attrib.normals.size());
+}
+
 shared_ptr<material> make_material_from_tinyobj(
     const tinyobj::material_t& src,
     const std::string& texture_base_path,
@@ -227,7 +257,32 @@ obj_load_result load_obj_model(
                 fallback_material
             );
 
-            triangles->add(make_shared<triangle>(p0, p1 - p0, p2 - p0, mat));
+            bool use_smooth_normal =
+                options.use_vertex_normals &&
+                has_valid_normal(attrib, i0) &&
+                has_valid_normal(attrib, i1) &&
+                has_valid_normal(attrib, i2);
+
+            if (use_smooth_normal) {
+                vec3 n0 = read_normal(attrib, i0.normal_index);
+                vec3 n1 = read_normal(attrib, i1.normal_index);
+                vec3 n2 = read_normal(attrib, i2.normal_index);
+
+                triangles->add(
+                    make_shared<triangle>(
+                        p0,
+                        p1 - p0,
+                        p2 - p0,
+                        n0,
+                        n1,
+                        n2,
+                        mat
+                    )
+                );
+            } else {
+                triangles->add(make_shared<triangle>(p0, p1 - p0, p2 - p0, mat));
+            }
+
             result.triangle_count++;
         }
     }
