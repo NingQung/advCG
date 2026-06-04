@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <cctype>
 #include <vector>
 
 #include "bvh.h"
@@ -42,6 +43,30 @@ std::string join_path(const std::string& base, const std::string& name) {
 
 double color_length_squared(double r, double g, double b) {
     return r * r + g * g + b * b;
+}
+
+std::string lower_copy(std::string s) {
+    for (char& c : s) {
+        c = char(std::tolower(static_cast<unsigned char>(c)));
+    }
+
+    return s;
+}
+
+color tinyobj_diffuse_color(const tinyobj::material_t& src) {
+    return color(
+        static_cast<double>(src.diffuse[0]),
+        static_cast<double>(src.diffuse[1]),
+        static_cast<double>(src.diffuse[2])
+    );
+}
+
+color tinyobj_emission_color(const tinyobj::material_t& src) {
+    return color(
+        static_cast<double>(src.emission[0]),
+        static_cast<double>(src.emission[1]),
+        static_cast<double>(src.emission[2])
+    );
 }
 
 point3 read_vertex(
@@ -97,31 +122,52 @@ shared_ptr<material> make_material_from_tinyobj(
     const std::string& texture_base_path,
     shared_ptr<material> fallback_material
 ) {
-    double er = static_cast<double>(src.emission[0]);
-    double eg = static_cast<double>(src.emission[1]);
-    double eb = static_cast<double>(src.emission[2]);
+    std::string name = lower_copy(src.name);
 
-    if (color_length_squared(er, eg, eb) > 1e-12) {
-        return make_shared<diffuse_light>(color(er, eg, eb));
+    if (name == "glass") {
+        return make_shared<dielectric>(1.5, 0.15);
     }
 
+    if (name == "metal") {
+        color albedo = tinyobj_diffuse_color(src);
+
+        if (albedo.length_squared() <= 1e-12)
+            albedo = color(0.8, 0.85, 0.88);
+
+        return make_shared<metal>(albedo, 0.0);
+    }
+
+    if (name == "light") {
+        color emit = tinyobj_emission_color(src);
+
+        if (emit.length_squared() <= 1e-12) {
+            color base = tinyobj_diffuse_color(src);
+
+            if (base.length_squared() <= 1e-12)
+                base = color(1.0, 1.0, 1.0);
+
+            emit = 10.0 * base;
+        }
+
+        return make_shared<diffuse_light>(emit);
+    }
+
+    // Everything else is diffuse.
     if (!src.diffuse_texname.empty()) {
         std::string texture_path = join_path(texture_base_path, src.diffuse_texname);
         return make_shared<lambertian>(make_shared<image_texture>(texture_path.c_str()));
     }
 
-    double dr = static_cast<double>(src.diffuse[0]);
-    double dg = static_cast<double>(src.diffuse[1]);
-    double db = static_cast<double>(src.diffuse[2]);
+    color albedo = tinyobj_diffuse_color(src);
 
-    if (color_length_squared(dr, dg, db) <= 1e-12) {
+    if (albedo.length_squared() <= 1e-12) {
         if (fallback_material)
             return fallback_material;
 
         return make_shared<lambertian>(color(0.73, 0.73, 0.73));
     }
 
-    return make_shared<lambertian>(color(dr, dg, db));
+    return make_shared<lambertian>(albedo);
 }
 
 std::vector<shared_ptr<material>> build_material_table(
