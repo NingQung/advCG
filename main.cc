@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         );
     }
 
-    switch (5) {
+    switch (4) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
       auto glass = make_shared<dielectric>(1.7, 0.15);
@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
                   << ", radius = " << target_radius << "\n";
     }
 
-    cam.aspect_ratio      = 2.0;
+    cam.aspect_ratio      = 1.0;
     cam.image_width       = 300;
     cam.samples_per_pixel = 1000;
     cam.max_depth         = 50;
@@ -267,7 +267,7 @@ int main(int argc, char** argv) {
     caustic_map.photon_count = 5000000;
     caustic_map.max_depth = 20;
 
-    caustic_map.gather_radius = 2.0; //+
+    caustic_map.gather_radius = 1.0; //+
     caustic_map.max_gather_radius = 5.0;
     caustic_map.min_photons_per_gather = 30;
     caustic_map.adaptive_radius_growth = 1.5;
@@ -275,7 +275,7 @@ int main(int argc, char** argv) {
     caustic_map.grid_cell_size = 6.0;
     caustic_map.spectral_radius_nm = 40.0;
     caustic_map.caustic_strength = 1.0;
-    caustic_map.rgb_caustic_strength = 0.25;
+    caustic_map.rgb_caustic_strength = 0.75;
 
     caustic_map.use_spatial_grid = true;
     caustic_map.use_adaptive_gather = true;
