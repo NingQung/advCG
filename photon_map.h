@@ -49,6 +49,11 @@ struct photon_candidate {
     double dist2;
 };
 
+struct photon_emission_sample {
+    ray photon_ray;
+    SpectralEnergy power;
+};
+
 inline bool has_positive_spectral_power(const SpectralEnergy& power) {
     for (int i = 0; i < WL_PER_RAY; ++i) {
         if (power.energy[i] > 0.0)
@@ -95,6 +100,69 @@ class area_light_emitter {
         return emitted * (area * pi * emitter_count / double(photon_count));
     }
 
+    photon_emission_sample sample_photon(
+        const Wavelengths& wl,
+        int photon_count,
+        int emitter_count,
+        bool use_target,
+        const point3& target_center,
+        double target_radius
+    ) const {
+        point3 origin = Q + random_double() * u + random_double() * v;
+
+        if (use_target && target_radius > 0.0) {
+            vec3 to_target = target_center - origin;
+            double distance_to_target = to_target.length();
+
+            if (distance_to_target > target_radius) {
+                double sin_theta_max = target_radius / distance_to_target;
+
+                if (sin_theta_max > 0.999999)
+                    sin_theta_max = 0.999999;
+
+                double cos_theta_max = std::sqrt(
+                    std::fmax(0.0, 1.0 - sin_theta_max * sin_theta_max)
+                );
+
+                double u1 = random_double();
+                double u2 = random_double();
+
+                double cos_theta = 1.0 - u1 * (1.0 - cos_theta_max);
+                double sin_theta = std::sqrt(std::fmax(0.0, 1.0 - cos_theta * cos_theta));
+                double phi = 2.0 * pi * u2;
+
+                onb target_basis(unit_vector(to_target));
+                vec3 local_direction(
+                    std::cos(phi) * sin_theta,
+                    std::sin(phi) * sin_theta,
+                    cos_theta
+                );
+
+                vec3 direction = unit_vector(target_basis.transform(local_direction));
+                double cos_on_light = dot(direction, normal);
+
+                if (cos_on_light > 0.0) {
+                    double solid_angle = 2.0 * pi * (1.0 - cos_theta_max);
+
+                    SpectralEnergy emitted = rgb_emission_to_spectral_energy(emit_rgb, wl);
+                    SpectralEnergy power =
+                        emitted *
+                        (area * solid_angle * cos_on_light * emitter_count / double(photon_count));
+
+                    return {
+                        ray(origin + 0.001 * normal, direction, random_double(), wl),
+                        power
+                    };
+                }
+            }
+        }
+
+        ray emitted_ray = sample_ray(wl);
+        SpectralEnergy power = initial_power(wl, photon_count, emitter_count);
+
+        return { emitted_ray, power };
+    }
+
   private:
     point3 Q;
     vec3 u;
@@ -117,8 +185,35 @@ class light_emitter_list {
         return emitters[random_int(0, int(emitters.size()) - 1)];
     }
 
+    void set_target_sphere(const point3& center, double radius) {
+        target_enabled = radius > 0.0;
+        target_center_value = center;
+        target_radius_value = radius;
+    }
+
+    void clear_target_sphere() {
+        target_enabled = false;
+        target_radius_value = 0.0;
+    }
+
+    bool has_target_sphere() const {
+        return target_enabled && target_radius_value > 0.0;
+    }
+
+    const point3& target_center() const {
+        return target_center_value;
+    }
+
+    double target_radius() const {
+        return target_radius_value;
+    }
+
   private:
     std::vector<area_light_emitter> emitters;
+
+    bool target_enabled = false;
+    point3 target_center_value = point3(0, 0, 0);
+    double target_radius_value = 0.0;
 };
 
 class photon_map {
@@ -140,6 +235,7 @@ class photon_map {
     // Practical brightness knob. Photon mapping brightness often needs calibration
     // in a first implementation.
     double caustic_strength = 1.0;
+    double rgb_caustic_strength = 1.0;
 
     // Turn this off to compare against brute-force search.
     bool use_spatial_grid = true;
@@ -293,7 +389,7 @@ class photon_map {
 
         // Integral of kernel w(r)=1-r/R over a disk is πR²/3.
         const double kernel_area = pi * radius * radius / 3.0;
-        color result = caustic_strength * (rgb_flux / kernel_area);
+        color result = rgb_caustic_strength * (rgb_flux / kernel_area);
 
         return nonnegative_color(result);
     }
@@ -604,7 +700,7 @@ class photon_map {
             if (radius >= max_radius)
                 break;
 
-            radius = std::min(radius * k_nearest_radius_growth, max_radius);
+            radius = std::min(radius + k_nearest_radius_growth, max_radius);
         }
 
         if (candidates.empty())
@@ -784,8 +880,18 @@ inline void build_caustic_photon_map(
         Wavelengths wavelengths = Wavelengths::sample();
         const area_light_emitter& emitter = emitters.random_emitter();
 
-        ray photon_ray = emitter.sample_ray(wavelengths);
-        SpectralEnergy power = emitter.initial_power(wavelengths, map.photon_count, emitters.size());
+        photon_emission_sample emission =
+            emitter.sample_photon(
+                wavelengths,
+                map.photon_count,
+                emitters.size(),
+                emitters.has_target_sphere(),
+                emitters.target_center(),
+                emitters.target_radius()
+            );
+
+        ray photon_ray = emission.photon_ray;
+        SpectralEnergy power = emission.power;
 
         bool has_delta_bounce = false;
 
