@@ -199,8 +199,8 @@ int main(int argc, char** argv) {
         obj_load_options obj_options;
         obj_options.scale = obj_scale;
         obj_options.offset = obj_offset;
-        obj_options.use_mtl_materials = false;
-        obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
+        obj_options.use_mtl_materials = true;
+        obj_options.default_material = white;
         obj_options.use_bvh = true;
         obj_options.use_vertex_normals = true;
 
