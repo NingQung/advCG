@@ -175,15 +175,19 @@ int main(int argc, char** argv) {
     case 5: { // input final scene
       world.add(make_shared<quad>(point3(-555,0,2555), vec3(1110,0,0), vec3(0,0,-3110), white)); //buttom
 
-      auto light = make_shared<diffuse_light>(color(1000.0, 1000.0, 1000.0));
-      world.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
-      lights.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
-      emitters.add_quad(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), color(1000.0, 1000.0, 1000.0));
+      auto light = make_shared<diffuse_light>(color(2000.0, 2000.0, 2000.0));
+      // world.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
+      // lights.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
+      // emitters.add_quad(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
+      world.add(make_shared<quad>(point3(300,600,0), vec3(26, -20, 0), vec3(0, 0, 26), light));
+      lights.add(make_shared<quad>(point3(300,600,0), vec3(26, -20, 0), vec3(0, 0, 26), light));
+      emitters.add_quad(point3(300,600,0), vec3(26, -20, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
+
       // input OBJ
       // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
 
       cam.vfov     = 20;
-      cam.lookfrom = point3(0, 400, -800);
+      cam.lookfrom = point3(0, 800, -1200);
       cam.lookat   = point3(0, 0, 0);
       cam.vup      = vec3(0, 1, 0);
       break;
