@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         );
     }
 
-    switch (1) {
+    switch (4) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
       auto glass = make_shared<dielectric>(1.7, 0.15);
@@ -175,13 +175,13 @@ int main(int argc, char** argv) {
     case 5: { // input final scene
       world.add(make_shared<quad>(point3(-555,0,2555), vec3(1110,0,0), vec3(0,0,-3110), white)); //buttom
 
-      auto light = make_shared<diffuse_light>(color(2000.0, 2000.0, 2000.0));
+      auto light = make_shared<diffuse_light>(color(50.0, 50.0, 50.0));
       // world.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
       // lights.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
       // emitters.add_quad(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
-      world.add(make_shared<quad>(point3(800,600,0), vec3(26, -30, 0), vec3(0, 0, 26), light));
-      lights.add(make_shared<quad>(point3(800,600,0), vec3(26, -30, 0), vec3(0, 0, 26), light));
-      emitters.add_quad(point3(800,600,0), vec3(26, -30, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
+      world.add(make_shared<quad>(point3(500,500,200), vec3(100, -120, 0), vec3(-50, 0, 50), light));
+      lights.add(make_shared<quad>(point3(500,500,200), vec3(100, -120, 0), vec3(-50, 0, 50), light));
+      emitters.add_quad(point3(500,500,200), vec3(100, -120, 0), vec3(-50, 0, 50), color(50.0, 50.0, 50.0));
 
       // input OBJ
       // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
 
     cam.aspect_ratio      = 1.0;
     cam.image_width       = 300;
-    cam.samples_per_pixel = 1000;
+    cam.samples_per_pixel = 2000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
@@ -254,7 +254,7 @@ int main(int argc, char** argv) {
     cam.debug_only_photon_render = false;
     cam.use_photon_rgb_caustic = true;
     cam.use_parallel_render = true;
-    cam.thread_count = 8; // auto
+    cam.thread_count = 12; // auto
 
     cam.use_russian_roulette = true;
     cam.russian_roulette_start_bounce = 5;
@@ -285,7 +285,7 @@ int main(int argc, char** argv) {
     caustic_map.use_adaptive_gather = true;
 
     caustic_map.use_k_nearest_gather = true;
-    caustic_map.k_nearest_photon_count = 400; //++
+    caustic_map.k_nearest_photon_count = 200; //++
     caustic_map.k_nearest_max_radius = 15.0; //+++
     caustic_map.k_nearest_radius_growth = 1.0; //+
     caustic_map.k_nearest_require_full_count = true;

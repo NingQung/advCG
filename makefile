@@ -13,4 +13,4 @@ out2:
 out2-a:
 	./main assets/test4.obj 150 278 150 278 > image3.ppm
 out3:
-	./main assets/test3.obj 150 0 0 0 > image3.ppm
+	./main assets/test3.obj 150 150 0 0 > image3.ppm

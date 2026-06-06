@@ -488,6 +488,9 @@ class camera {
             }
         }
 
+        bool child_suppress_spt_caustic_paths =
+            replace_spt_caustics_with_photon_map && has_visible_caustic(color_from_caustic);
+
         sample_result child =
             ray_color_with_rgb_caustic(
                 scattered,
@@ -496,8 +499,10 @@ class camera {
                 lights,
                 caustic_map,
                 false,
+                false,
+                child_suppress_spt_caustic_paths,
                 false
-            );
+    );
 
         result.spectral =
             color_from_emission +
