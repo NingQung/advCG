@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         );
     }
 
-    switch (4) {
+    switch (1) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
       auto glass = make_shared<dielectric>(1.7, 0.15);
@@ -179,9 +179,9 @@ int main(int argc, char** argv) {
       // world.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
       // lights.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
       // emitters.add_quad(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
-      world.add(make_shared<quad>(point3(300,600,0), vec3(26, -20, 0), vec3(0, 0, 26), light));
-      lights.add(make_shared<quad>(point3(300,600,0), vec3(26, -20, 0), vec3(0, 0, 26), light));
-      emitters.add_quad(point3(300,600,0), vec3(26, -20, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
+      world.add(make_shared<quad>(point3(800,600,0), vec3(26, -30, 0), vec3(0, 0, 26), light));
+      lights.add(make_shared<quad>(point3(800,600,0), vec3(26, -30, 0), vec3(0, 0, 26), light));
+      emitters.add_quad(point3(800,600,0), vec3(26, -30, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
 
       // input OBJ
       // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
@@ -260,6 +260,10 @@ int main(int argc, char** argv) {
     cam.russian_roulette_start_bounce = 5;
     cam.russian_roulette_min_probability = 0.05;
     cam.russian_roulette_max_probability = 0.95;
+
+    cam.replace_spt_caustics_with_photon_map = true;
+    cam.spt_caustic_weight = 0.0;
+    cam.caustic_replacement_epsilon = 1e-12;
 
     auto start = std::chrono::high_resolution_clock::now();
 

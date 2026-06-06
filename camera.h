@@ -39,6 +39,10 @@ class camera {
     double russian_roulette_min_probability = 0.05;
     double russian_roulette_max_probability = 0.95;
 
+    bool replace_spt_caustics_with_photon_map = true;
+    double spt_caustic_weight = 0.0;
+    double caustic_replacement_epsilon = 1e-12;
+
     void render(const hittable& world, const hittable& lights) {
         photon_map empty_caustic_map;
         render(world, lights, empty_caustic_map);
@@ -296,6 +300,33 @@ class camera {
         return e * (max_average / avg);
     }
 
+    bool has_visible_caustic(const color& caustic) const {
+        return caustic.length_squared() > caustic_replacement_epsilon;
+    }
+
+    bool has_visible_caustic(const SpectralEnergy& caustic) const {
+        for (int k = 0; k < WL_PER_RAY; ++k) {
+            if (caustic.energy[k] * caustic.energy[k] > caustic_replacement_epsilon)
+                return true;
+        }
+
+        return false;
+    }
+
+    SpectralEnergy apply_spt_caustic_replacement(
+        const SpectralEnergy& emitted,
+        bool suppress_spt_caustic_paths,
+        bool delta_chain_after_receiver
+    ) const {
+        if (!replace_spt_caustics_with_photon_map)
+            return emitted;
+
+        if (!suppress_spt_caustic_paths || !delta_chain_after_receiver)
+            return emitted;
+
+        return spt_caustic_weight * emitted;
+}
+
     struct sample_result {
         SpectralEnergy spectral;
         color photon_rgb_caustic;
@@ -343,7 +374,9 @@ class camera {
         const hittable& lights,
         const photon_map& caustic_map,
         bool allow_caustic_gather = true,
-        bool after_delta_bounce = false
+        bool after_delta_bounce = false,
+        bool suppress_spt_caustic_paths = false,
+        bool delta_chain_after_receiver = false
     ) const {
         sample_result result;
 
@@ -359,9 +392,15 @@ class camera {
         SpectralEnergy color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
 
         if (!rec.mat->scatter(r, rec, srec)) {
+            SpectralEnergy emitted = apply_spt_caustic_replacement(
+                color_from_emission,
+                suppress_spt_caustic_paths,
+                delta_chain_after_receiver
+            );
+
             result.spectral = after_delta_bounce
-                ? clamp_spectral_average(color_from_emission, r.wavelengths(), 20.0)
-                : color_from_emission;
+                ? clamp_spectral_average(emitted, r.wavelengths(), 20.0)
+                : emitted;
 
             return result;
         }
@@ -376,6 +415,9 @@ class camera {
                     return result;
             }
 
+            bool next_delta_chain_after_receiver =
+                      delta_chain_after_receiver || suppress_spt_caustic_paths;
+
             sample_result child =
                 ray_color_with_rgb_caustic(
                     srec.skip_pdf_ray,
@@ -384,7 +426,9 @@ class camera {
                     lights,
                     caustic_map,
                     allow_caustic_gather,
-                    true
+                    true,
+                    suppress_spt_caustic_paths,
+                    next_delta_chain_after_receiver
                 );
 
             result.spectral = (srec.attenuation * child.spectral) / rr_probability;
@@ -464,7 +508,16 @@ class camera {
         return result;
     }
 
-    SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights, const photon_map& caustic_map, bool allow_caustic_gather = true) const {
+    SpectralEnergy ray_color(
+        const ray& r,
+        int depth,
+        const hittable& world,
+        const hittable& lights,
+        const photon_map& caustic_map,
+        bool allow_caustic_gather = true,
+        bool suppress_spt_caustic_paths = false,
+        bool delta_chain_after_receiver = false
+    ) const {
         if (depth <= 0)
             return SpectralEnergy(0.0);
 
@@ -476,8 +529,13 @@ class camera {
         scatter_record srec;
         SpectralEnergy color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
 
-        if (!rec.mat->scatter(r, rec, srec))
-            return color_from_emission;
+        if (!rec.mat->scatter(r, rec, srec)) {
+            return apply_spt_caustic_replacement(
+                color_from_emission,
+                suppress_spt_caustic_paths,
+                delta_chain_after_receiver
+            );
+        }
 
         if (srec.skip_pdf) {
             double rr_probability = 1.0;
@@ -489,9 +547,20 @@ class camera {
                     return SpectralEnergy(0.0);
             }
 
+            bool next_delta_chain_after_receiver =
+                delta_chain_after_receiver || suppress_spt_caustic_paths;
+
             return (srec.attenuation *
-                ray_color(srec.skip_pdf_ray, depth - 1, world, lights, caustic_map, allow_caustic_gather))
-                / rr_probability;
+                ray_color(
+                    srec.skip_pdf_ray,
+                    depth - 1,
+                    world,
+                    lights,
+                    caustic_map,
+                    allow_caustic_gather,
+                    suppress_spt_caustic_paths,
+                    next_delta_chain_after_receiver
+                )) / rr_probability;
         }
 
         SpectralEnergy color_from_caustic = allow_caustic_gather ? 
@@ -531,8 +600,20 @@ class camera {
                 return color_from_emission + color_from_caustic;
         }
 
+        bool child_suppress_spt_caustic_paths =
+            replace_spt_caustics_with_photon_map && has_visible_caustic(color_from_caustic);
+
         SpectralEnergy sample_color =
-            ray_color(scattered, depth - 1, world, lights, caustic_map, false);
+            ray_color(
+                scattered,
+                depth - 1,
+                world,
+                lights,
+                caustic_map,
+                false,
+                child_suppress_spt_caustic_paths,
+                false
+            );
 
         SpectralEnergy color_from_scatter =
             (srec.attenuation * scattering_pdf * sample_color) / (pdf_value * rr_probability);
