@@ -1,11 +1,6 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include <fstream>
-#include <sstream>
-#include <iomanip>
-#include <vector>
-
 #include "hittable.h"
 #include "pdf.h"
 #include "material.h"
@@ -26,42 +21,26 @@ class camera {
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
-    void render(const hittable& world, const hittable& lights) {
+    void render(const hittable& world, const hittable& lights)  {
         initialize();
 
-        std::vector<color> accum(image_width * image_height, color(0, 0, 0));
+        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
-        const int checkpoint_count = 5;
-        const int checkpoint_step = samples_per_pixel / checkpoint_count;
-
-        for (int s = 1; s <= samples_per_pixel; ++s) {
-            std::clog << "\rSPP: " << s << " / " << samples_per_pixel << ' ' << std::flush;
-
-            for (int j = 0; j < image_height; ++j) {
-                for (int i = 0; i < image_width; ++i) {
-                    ray r = get_ray(i, j);
-                    SpectralEnergy sample_energy = ray_color(r, max_depth, world, lights);
-
-                    vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
-
-                    const int index = j * image_width + i;
-                    accum[index] += sample_rgb;
+        for (int j = 0; j < image_height; j++) {
+            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+            for (int i = 0; i < image_width; i++) {
+                color pixel_color(0,0,0);
+                for (int s_j = 0; s_j < sqrt_spp; s_j++) {
+                    for (int s_i = 0; s_i < sqrt_spp; s_i++) {
+                        ray r = get_ray(i, j, s_i, s_j);
+                        SpectralEnergy sample_energy = ray_color(r, max_depth, world, lights);
+                        
+                        // Immediately convert this sample's spectral energy to RGB
+                        vec3 sample_rgb = spectral_to_rgb(sample_energy, r.wavelengths());
+                        pixel_color += sample_rgb;
+                    }
                 }
-            }
-
-            const bool is_checkpoint =
-                (checkpoint_step > 0 && s % checkpoint_step == 0) ||
-                (s == samples_per_pixel);
-
-            if (is_checkpoint) {
-                std::ostringstream filename;
-                filename << "render_"
-                        << std::setw(5) << std::setfill('0') << s
-                        << "spp.ppm";
-
-                write_image_file(filename.str(), accum, s);
-
-                std::clog << "\nSaved " << filename.str() << "\n";
+                write_color(std::cout, pixel_samples_scale * pixel_color);
             }
         }
 
@@ -122,9 +101,11 @@ class camera {
         defocus_disk_v = v * defocus_radius;
     }
 
-    ray get_ray(int i, int j) const {
-        auto offset = sample_square();
+    ray get_ray(int i, int j, int s_i, int s_j) const {
+        // Construct a camera ray originating from the defocus disk and directed at a randomly
+        // sampled point around the pixel location i, j for stratified sample square s_i, s_j.
 
+        auto offset = sample_square_stratified(s_i, s_j);
         auto pixel_sample = pixel00_loc
                           + ((i + offset.x()) * pixel_delta_u)
                           + ((j + offset.y()) * pixel_delta_v);
@@ -206,25 +187,6 @@ class camera {
         SpectralEnergy color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value;
 
         return color_from_emission + color_from_scatter;
-    }
-
-    void write_image_file(
-        const std::string& filename,
-        const std::vector<color>& accum,
-        int completed_spp
-    ) const {
-        std::ofstream out(filename);
-
-        out << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-
-        const double scale = 1.0 / completed_spp;
-
-        for (int j = 0; j < image_height; ++j) {
-            for (int i = 0; i < image_width; ++i) {
-                const int index = j * image_width + i;
-                write_color(out, scale * accum[index]);
-            }
-        }
     }
 };
 
