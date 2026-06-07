@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
     cam.defocus_angle = 0;
 
     cam.use_parallel_render = true;
-    cam.thread_count = 8;
+    cam.thread_count = 12;
 
     auto start = std::chrono::high_resolution_clock::now();
 

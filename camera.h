@@ -222,7 +222,40 @@ class camera {
         return pixel_samples_scale * pixel_color;
     }
 
-    SpectralEnergy ray_color(const ray& r, int depth, const hittable& world, const hittable& lights) const {
+    SpectralEnergy clamp_spectral_average(
+        const SpectralEnergy& e,
+        const Wavelengths& wl,
+        double max_average
+    ) const {
+        double sum = 0.0;
+        int count = 0;
+
+        for (int k = 0; k < WL_PER_RAY; ++k) {
+            if (wl.hero_only && k != 0)
+                continue;
+
+            sum += std::fmax(0.0, e.energy[k]);
+            count++;
+        }
+
+        if (count <= 0)
+            return e;
+
+        double avg = sum / count;
+
+        if (avg <= max_average)
+            return e;
+
+        return e * (max_average / avg);
+    }
+
+    SpectralEnergy ray_color(
+        const ray& r,
+        int depth,
+        const hittable& world,
+        const hittable& lights,
+        bool after_delta_bounce = false
+    ) const {
         
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0)
@@ -237,11 +270,14 @@ class camera {
         scatter_record srec;
         SpectralEnergy color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
 
-        if (!rec.mat->scatter(r, rec, srec))
-            return color_from_emission;
+        if (!rec.mat->scatter(r, rec, srec)) {
+            return after_delta_bounce
+                ? clamp_spectral_average(color_from_emission, r.wavelengths(), 20.0)
+                : color_from_emission;
+        }
         
         if (srec.skip_pdf) {
-            return srec.attenuation * ray_color(srec.skip_pdf_ray, depth-1, world, lights);
+            return srec.attenuation * ray_color(srec.skip_pdf_ray, depth-1, world, lights, true);
         }
 
         auto light_ptr = make_shared<spectral_light_pdf>(lights, rec.p);
