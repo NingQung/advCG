@@ -33,6 +33,7 @@ int main(int argc, char** argv) {
     auto checker_mat = make_shared<lambertian>(checker_tex);
     auto wave_tex = make_shared<wave_texture>(25.0,color(.85, .85, .85),color(.10, .10, .10));
     auto wave_mat = make_shared<lambertian>(wave_tex);
+    auto obj_mtl_temp = make_shared<dielectric>(1.5, 0.05);
 
     hittable_list lights;
     camera cam;
@@ -58,7 +59,7 @@ int main(int argc, char** argv) {
         );
     }
 
-    switch (4) {
+    switch (5) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
       auto glass = make_shared<dielectric>(1.7, 0.15);
@@ -164,7 +165,7 @@ int main(int argc, char** argv) {
       emitters.add_quad(point3(265, 554, 268.5), vec3(26, 0, 0), vec3(0, 0, 21), color(1000.0, 1000.0, 1000.0));
 
       // input OBJ
-      // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
+      obj_mtl_temp = make_shared<dielectric>(1.5, 0.15);
 
       cam.vfov     = 40;
       cam.lookfrom = point3(278, 555, -400);
@@ -175,16 +176,16 @@ int main(int argc, char** argv) {
     case 5: { // input final scene
       world.add(make_shared<quad>(point3(-555,0,2555), vec3(1110,0,0), vec3(0,0,-3110), white)); //buttom
 
-      auto light = make_shared<diffuse_light>(color(50.0, 50.0, 50.0));
+      auto light = make_shared<diffuse_light>(color(5000.0, 5000.0, 5000.0));
       // world.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
       // lights.add(make_shared<quad>(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), light));
       // emitters.add_quad(point3(300,600,0), vec3(26, 0, 0), vec3(0, 0, 26), color(2000.0, 2000.0, 2000.0));
-      world.add(make_shared<quad>(point3(500,500,200), vec3(100, -120, 0), vec3(-50, 0, 50), light));
-      lights.add(make_shared<quad>(point3(500,500,200), vec3(100, -120, 0), vec3(-50, 0, 50), light));
-      emitters.add_quad(point3(500,500,200), vec3(100, -120, 0), vec3(-50, 0, 50), color(50.0, 50.0, 50.0));
+      world.add(make_shared<quad>(point3(800,500,200), vec3(5, -20, 0), vec3(-10, 0, 10), light));
+      lights.add(make_shared<quad>(point3(800,500,200), vec3(5, -20, 0), vec3(-10, 0, 10), light));
+      emitters.add_quad(point3(800,500,200), vec3(5, -20, 0), vec3(-10, 0, 10), color(5000.0, 5000.0, 5000.0));
 
       // input OBJ
-      // obj_options.default_material = make_shared<dielectric>(1.5, 0.15);
+      obj_mtl_temp = make_shared<dielectric>(1.5, 0.05);
 
       cam.vfov     = 20;
       cam.lookfrom = point3(0, 800, -1200);
@@ -199,8 +200,8 @@ int main(int argc, char** argv) {
         obj_load_options obj_options;
         obj_options.scale = obj_scale;
         obj_options.offset = obj_offset;
-        obj_options.use_mtl_materials = true;
-        obj_options.default_material = white;
+        obj_options.use_mtl_materials = false;
+        obj_options.default_material = obj_mtl_temp;
         obj_options.use_bvh = true;
         obj_options.use_vertex_normals = true;
 
@@ -244,9 +245,9 @@ int main(int argc, char** argv) {
                   << ", radius = " << target_radius << "\n";
     }
 
-    cam.aspect_ratio      = 1.0;
+    cam.aspect_ratio      = 2.0;
     cam.image_width       = 300;
-    cam.samples_per_pixel = 2000;
+    cam.samples_per_pixel = 1000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
@@ -285,8 +286,8 @@ int main(int argc, char** argv) {
     caustic_map.use_adaptive_gather = true;
 
     caustic_map.use_k_nearest_gather = true;
-    caustic_map.k_nearest_photon_count = 200; //++
-    caustic_map.k_nearest_max_radius = 15.0; //+++
+    caustic_map.k_nearest_photon_count = 50; //++
+    caustic_map.k_nearest_max_radius = 5.0; //+++
     caustic_map.k_nearest_radius_growth = 1.0; //+
     caustic_map.k_nearest_require_full_count = true;
 
