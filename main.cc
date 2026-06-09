@@ -59,13 +59,13 @@ int main(int argc, char** argv) {
         );
     }
 
-    switch (5) {
+    switch (1) {
     case 1: { // Cornell box + glass ball
       // Cornell box sides
       auto glass = make_shared<dielectric>(1.7, 0.15);
       auto glass2 = make_shared<dielectric>(1.5, 0.15);
-      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), white)); //left
-      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), white)); //right
+      world.add(make_shared<quad>(point3(555,0,0), vec3(0,0,555), vec3(0,555,0), green)); //left
+      world.add(make_shared<quad>(point3(0,0,555), vec3(0,0,-555), vec3(0,555,0), red)); //right
       world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white)); //up
       world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,-555), white)); //buttom
       world.add(make_shared<quad>(point3(555,0,555), vec3(-555,0,0), vec3(0,555,0), wave_mat)); //back
@@ -245,9 +245,9 @@ int main(int argc, char** argv) {
                   << ", radius = " << target_radius << "\n";
     }
 
-    cam.aspect_ratio      = 2.0;
-    cam.image_width       = 300;
-    cam.samples_per_pixel = 1000;
+    cam.aspect_ratio      = 1.0;
+    cam.image_width       = 600;
+    cam.samples_per_pixel = 10000;
     cam.max_depth         = 50;
     cam.background        = color(0,0,0);
     cam.defocus_angle = 0;
@@ -287,9 +287,9 @@ int main(int argc, char** argv) {
 
     caustic_map.use_k_nearest_gather = true;
     caustic_map.k_nearest_photon_count = 50; //++
-    caustic_map.k_nearest_max_radius = 5.0; //+++
+    caustic_map.k_nearest_max_radius = 2.0; //+++
     caustic_map.k_nearest_radius_growth = 1.0; //+
-    caustic_map.k_nearest_require_full_count = true;
+    caustic_map.k_nearest_require_full_count = false;
 
     caustic_map.debug_write_ply = false;
     caustic_map.debug_ply_filename = "caustic_photons.ply";

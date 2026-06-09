@@ -14,3 +14,7 @@ out2-a:
 	./main assets/test4.obj 150 278 150 278 > image3.ppm
 out3:
 	./main assets/test3.obj 150 150 0 0 > image3.ppm
+out-con:
+	./main assets/test3.obj 150 150 0 0 > image3.ppm
+	./main2 assets/test3.obj 150 150 0 0 > image4.ppm
+	./main3 assets/test3.obj 150 150 0 0 > image5.ppm
