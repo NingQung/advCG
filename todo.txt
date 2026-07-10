@@ -1,19 +1,24 @@
-光線怎麼折射:
-  一條光攜帶一個波長，折射就是依據此唯一波長折射
-    沒啥問題，但就是會比較慢(相較 sv0.1.0 多四倍)
-  一條光攜帶多個波長
-    隨機採、取a0
-    隨機採、取中位數
-    先採中間為Hero，兩邊加減固定區間再取(+-k,+-2k取四條)
-    採一條為Hero後，區間內隨機採(+-k內隨機取三條)
-    
+你好!
+我是大學部的專題學生 鄭元翔，這台電腦現在算圖中(以及另外一台筆電也在算圖)!
+現在時間 06/07 23.40，預計算圖花費13個小時，所以應該會在 06/08 13.00 計算完畢
+請不要關掉此視窗的 terminal ，謝謝!
 
-    
-  一條光攜帶區間內多個波長，取中間做Hero
-  一
+This computer is running my renderer, and also other laptop.
+Estimate finish time is 06/08 13.00
+Please don't close the terminal below, thanks!
 
 
+main/image3: 150gp 1.0r+1.0k max5.0 full-count
+main2/image4: 100gp 1.0r+1.0k max5.0 full-count
+main3/image5: 50gp 1.0r+1.0k max5.0 full-count
+main4/image6: 200gp 0.5r+0.5k max2.0 full-count
+main5/image7: 25mp 50gp 1.0r+1.0k max5.0 full-count
+main6/image8: 25mp 50gp 1.0r+1.0k max2.0 full-count
 
-
-
-加速渲染
+out-con:
+	./main assets/test4.obj 150 278 150 278 > image3.ppm
+	./main2 assets/test4.obj 150 278 150 278 > image4.ppm
+	./main3 assets/test4.obj 150 278 150 278 > image5.ppm
+	./main4 assets/test4.obj 150 278 150 278 > image6.ppm
+	./main5 assets/test4.obj 150 278 150 278 > image7.ppm
+	./main6 assets/test4.obj 150 278 150 278 > image8.ppm
